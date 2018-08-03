@@ -23,58 +23,55 @@ const (
 )
 
 type download struct {
-	lastRFC1123 string
-	lastRFC3339 string
+	lastRFC1123 string // Pre-rendered string
+	lastRFC3339 string // Pre-rendered string
 	mem         []byte
 	ready       bool
 	reader      *bytes.Reader
-	size        string
+	size        string // Pre-rendered string
 }
 
 var (
-	ramCache = [4]download{}
+	ramCache = [4]download{
+		{ // Win32
+			lastRFC1123: time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC1123),
+			lastRFC3339: time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC3339),
+		},
+		{ // Win64
+			lastRFC1123: time.Date(2017, time.September, 20, 14, 59, 59, 0, time.UTC).Format(time.RFC1123),
+			lastRFC3339: time.Date(2017, time.September, 20, 14, 59, 59, 0, time.UTC).Format(time.RFC3339),
+		},
+		{ // OSX
+			lastRFC1123: time.Date(2017, time.September, 20, 15, 23, 27, 0, time.UTC).Format(time.RFC1123),
+			lastRFC3339: time.Date(2017, time.September, 20, 15, 23, 27, 0, time.UTC).Format(time.RFC3339),
+		},
+		{ // PortableApp
+			lastRFC1123: time.Date(2017, time.September, 28, 19, 32, 48, 0, time.UTC).Format(time.RFC1123),
+			lastRFC3339: time.Date(2017, time.September, 28, 19, 32, 48, 0, time.UTC).Format(time.RFC3339),
+		},
+	}
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Log the downloads, so we don't lose the ability to count download numbers over time
-	var err error
 	switch r.URL.Path {
 	case "/favicon.ico":
 		http.ServeFile(w, r, filepath.Join(baseDir, "favicon.ico"))
 	case "/DB.Browser.for.SQLite-3.10.1-win64.exe":
-		fmt.Fprintf(w, "Not yet available")
+		serveDownload(w, ramCache[DB4S_3_10_1_WIN64], "DB.Browser.for.SQLite-3.10.1-win64.exe")
 	case "/DB.Browser.for.SQLite-3.10.1-win32.exe":
-		// If the file isn't cached, check if it's ready to be cached yet
-		if !ramCache[DB4S_3_10_1_WIN32].ready {
-			ramCache[DB4S_3_10_1_WIN32].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1-win32.exe"))
-			if err == nil {
-				// TODO: It'd probably be a good idea to check the SHA256 of the file contents before marking the cache as valid
-				ramCache[DB4S_3_10_1_WIN32].ready = true
-			}
-		}
-
-		if ramCache[DB4S_3_10_1_WIN32].ready {
-			err := serveDownload(w, ramCache[DB4S_3_10_1_WIN32])
-			if err != nil {
-				log.Printf("Error serving DB.Browser.for.SQLite-3.10.1-win32.exe: %v\n", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			// Warn the user
-			fmt.Fprintf(w, "Not yet available")
-		}
+		serveDownload(w, ramCache[DB4S_3_10_1_WIN32], "DB.Browser.for.SQLite-3.10.1-win32.exe")
 	case "/DB.Browser.for.SQLite-3.10.1.dmg":
-		fmt.Fprintf(w, "Not yet available")
+		serveDownload(w, ramCache[DB4S_3_10_1_OSX], "DB.Browser.for.SQLite-3.10.1.dmg")
 	case "/SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe":
-		fmt.Fprintf(w, "Not yet available")
+		serveDownload(w, ramCache[DB4S_3_10_1_PORTABLE], "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
 	default:
 		// TODO: Use a template instead
 		fmt.Fprintf(w, "<html><head><title>DB Browser for SQLite download cluster</title></head>")
-		fmt.Fprintf(w, "<body>Welcome to the DB Browser for SQLite download cluster.")
+		fmt.Fprintf(w, "<body>Welcome to the DB Browser for SQLite downloads.")
 		fmt.Fprintf(w, "<br /><br />")
-		fmt.Fprintf(w, "Requested path: %s", r.URL.Path)
-		fmt.Fprintf(w, "<br /><br />")
+		//fmt.Fprintf(w, "Requested path: %s", r.URL.Path)
+		//fmt.Fprintf(w, "<br /><br />")
 		fmt.Fprintf(w, "Available downloads:")
 		fmt.Fprintf(w, "<ul>")
 		fmt.Fprintf(w, "<li><a href=\"/DB.Browser.for.SQLite-3.10.1.dmg\">DB.Browser.for.SQLite-3.10.1.dmg</a> - For macOS</li>")
@@ -96,8 +93,6 @@ func main() {
 	if err == nil {
 		ramCache[DB4S_3_10_1_WIN32].reader = bytes.NewReader(ramCache[DB4S_3_10_1_WIN32].mem)
 		ramCache[DB4S_3_10_1_WIN32].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_WIN32].mem))
-		ramCache[DB4S_3_10_1_WIN32].lastRFC1123 = time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC1123)
-		ramCache[DB4S_3_10_1_WIN32].lastRFC3339 = time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC3339)
 		ramCache[DB4S_3_10_1_WIN32].ready = true
 	}
 	ramCache[DB4S_3_10_1_WIN64].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1-win64.exe"))
@@ -132,11 +127,34 @@ func main() {
 	// TODO - Close and flush the log file.  Also not sure if this is really needed.
 }
 
-func serveDownload(w http.ResponseWriter, d download) (err error) {
-	w.Header().Set("Last-Modified", ramCache[DB4S_3_10_1_WIN32].lastRFC1123)
-	w.Header().Set("Content-Disposition", ramCache[DB4S_3_10_1_WIN32].lastRFC3339)
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", ramCache[DB4S_3_10_1_WIN32].size)
-	_, err = ramCache[DB4S_3_10_1_WIN32].reader.WriteTo(w)
-	return
+func serveDownload(w http.ResponseWriter, cacheEntry download, fileName string) {
+	// If the file isn't cached, check if it's ready to be cached yet
+	var err error
+	if !cacheEntry.ready {
+		cacheEntry.mem, err = ioutil.ReadFile(filepath.Join(dataDir, fileName))
+		if err == nil {
+			// TODO: It'd probably be a good idea to check the SHA256 of the file contents before marking the cache as valid
+			// Add the download to the cache
+			cacheEntry.reader = bytes.NewReader(cacheEntry.mem)
+			cacheEntry.size = fmt.Sprintf("%d", len(cacheEntry.mem))
+			cacheEntry.ready = true
+		}
+	}
+
+	// Send the file (if cached)
+	if cacheEntry.ready {
+		w.Header().Set("Last-Modified", cacheEntry.lastRFC1123)
+		w.Header().Set("Content-Disposition", cacheEntry.lastRFC3339)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", cacheEntry.size)
+		_, err = cacheEntry.reader.WriteTo(w)
+		if err != nil {
+			log.Printf("Error serving DB.Browser.for.SQLite-3.10.1-win32.exe: %v\n", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Warn the user
+		fmt.Fprintf(w, "Not yet available")
+	}
 }
