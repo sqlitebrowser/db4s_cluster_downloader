@@ -118,13 +118,13 @@ func main() {
 	fmt.Println("Listening on port 443...")
 	err = http.ListenAndServeTLS(":443", filepath.Join(dataDir, "cert.pem"), filepath.Join(dataDir, "key.pem"), nil)
 	if err != nil {
-		// TODO - Make sure problems get recorded somewhere outside the container
+		// TODO: Make sure problems get recorded somewhere outside the container
 		log.Fatal(err)
 	}
 
-	// TODO - Close the PG connection gracefully? (is this really needed?)
+	// TODO: Close the PG connection gracefully? (is this really needed?)
 
-	// TODO - Close and flush the log file.  Also not sure if this is really needed.
+	// TODO: Close and flush the log file.  Also not sure if this is really needed.
 }
 
 func serveDownload(w http.ResponseWriter, cacheEntry download, fileName string) {
