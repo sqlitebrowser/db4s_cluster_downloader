@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"time"
 )
@@ -24,8 +23,12 @@ const (
 )
 
 type download struct {
-	mem   []byte
-	ready bool
+	lastRFC1123 string
+	lastRFC3339 string
+	mem         []byte
+	ready       bool
+	reader      *bytes.Reader
+	size        string
 }
 
 var (
@@ -51,15 +54,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if ramCache[DB4S_3_10_1_WIN32].ready {
-			// Serve the file from cache
-			lastMod := time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC)
-			w.Header().Set("Last-Modified", lastMod.Format(time.RFC1123))
-			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
-				url.QueryEscape("DB.Browser.for.SQLite-3.10.1-win32.exe"), lastMod.Format(time.RFC3339))) // TODO: Pre-calculate this string
-			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_WIN32].mem))) // TODO: Pre-calculate this string
-			rdr := bytes.NewReader(ramCache[DB4S_3_10_1_WIN32].mem) // TODO: Might be more efficient to cache this reader too
-			_, err := rdr.WriteTo(w)
+			err := serveDownload(w, ramCache[DB4S_3_10_1_WIN32])
 			if err != nil {
 				log.Printf("Error serving DB.Browser.for.SQLite-3.10.1-win32.exe: %v\n", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -99,18 +94,28 @@ func main() {
 	var err error
 	ramCache[DB4S_3_10_1_WIN32].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1-win32.exe"))
 	if err == nil {
+		ramCache[DB4S_3_10_1_WIN32].reader = bytes.NewReader(ramCache[DB4S_3_10_1_WIN32].mem)
+		ramCache[DB4S_3_10_1_WIN32].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_WIN32].mem))
+		ramCache[DB4S_3_10_1_WIN32].lastRFC1123 = time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC1123)
+		ramCache[DB4S_3_10_1_WIN32].lastRFC3339 = time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC3339)
 		ramCache[DB4S_3_10_1_WIN32].ready = true
 	}
 	ramCache[DB4S_3_10_1_WIN64].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1-win64.exe"))
 	if err == nil {
+		ramCache[DB4S_3_10_1_WIN64].reader = bytes.NewReader(ramCache[DB4S_3_10_1_WIN64].mem)
+		ramCache[DB4S_3_10_1_WIN64].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_WIN64].mem))
 		ramCache[DB4S_3_10_1_WIN64].ready = true
 	}
 	ramCache[DB4S_3_10_1_OSX].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1.dmg"))
 	if err == nil {
+		ramCache[DB4S_3_10_1_OSX].reader = bytes.NewReader(ramCache[DB4S_3_10_1_OSX].mem)
+		ramCache[DB4S_3_10_1_OSX].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_OSX].mem))
 		ramCache[DB4S_3_10_1_OSX].ready = true
 	}
 	ramCache[DB4S_3_10_1_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"))
 	if err == nil {
+		ramCache[DB4S_3_10_1_PORTABLE].reader = bytes.NewReader(ramCache[DB4S_3_10_1_PORTABLE].mem)
+		ramCache[DB4S_3_10_1_PORTABLE].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_PORTABLE].mem))
 		ramCache[DB4S_3_10_1_PORTABLE].ready = true
 	}
 
@@ -125,4 +130,13 @@ func main() {
 	// TODO - Close the PG connection gracefully? (is this really needed?)
 
 	// TODO - Close and flush the log file.  Also not sure if this is really needed.
+}
+
+func serveDownload(w http.ResponseWriter, d download) (err error) {
+	w.Header().Set("Last-Modified", ramCache[DB4S_3_10_1_WIN32].lastRFC1123)
+	w.Header().Set("Content-Disposition", ramCache[DB4S_3_10_1_WIN32].lastRFC3339)
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", ramCache[DB4S_3_10_1_WIN32].size)
+	_, err = ramCache[DB4S_3_10_1_WIN32].reader.WriteTo(w)
+	return
 }
