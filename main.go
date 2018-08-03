@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"time"
 )
@@ -24,7 +25,7 @@ const (
 
 type download struct {
 	lastRFC1123 string // Pre-rendered string
-	lastRFC3339 string // Pre-rendered string
+	disposition string // Pre-rendered string
 	mem         []byte
 	ready       bool
 	reader      *bytes.Reader
@@ -37,19 +38,27 @@ var (
 		// same ones already being used
 		{ // Win32
 			lastRFC1123: time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC1123),
-			lastRFC3339: time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC3339),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.10.1-win32.exe"),
+				time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC3339)),
 		},
 		{ // Win64
 			lastRFC1123: time.Date(2017, time.September, 20, 14, 59, 59, 0, time.UTC).Format(time.RFC1123),
-			lastRFC3339: time.Date(2017, time.September, 20, 14, 59, 59, 0, time.UTC).Format(time.RFC3339),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.10.1-win64.exe"),
+				time.Date(2017, time.September, 20, 14, 59, 59, 0, time.UTC).Format(time.RFC3339)),
 		},
 		{ // OSX
 			lastRFC1123: time.Date(2017, time.September, 20, 15, 23, 27, 0, time.UTC).Format(time.RFC1123),
-			lastRFC3339: time.Date(2017, time.September, 20, 15, 23, 27, 0, time.UTC).Format(time.RFC3339),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.10.1.dmg"),
+				time.Date(2017, time.September, 20, 15, 23, 27, 0, time.UTC).Format(time.RFC3339)),
 		},
 		{ // PortableApp
 			lastRFC1123: time.Date(2017, time.September, 28, 19, 32, 48, 0, time.UTC).Format(time.RFC1123),
-			lastRFC3339: time.Date(2017, time.September, 28, 19, 32, 48, 0, time.UTC).Format(time.RFC3339),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"),
+				time.Date(2017, time.September, 28, 19, 32, 48, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
 )
@@ -147,7 +156,7 @@ func serveDownload(w http.ResponseWriter, cacheEntry download, fileName string) 
 	// Send the file (if cached)
 	if cacheEntry.ready {
 		w.Header().Set("Last-Modified", cacheEntry.lastRFC1123)
-		w.Header().Set("Content-Disposition", cacheEntry.lastRFC3339)
+		w.Header().Set("Content-Disposition", cacheEntry.disposition)
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Length", cacheEntry.size)
 		_, err = cacheEntry.reader.WriteTo(w)
