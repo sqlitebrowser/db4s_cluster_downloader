@@ -76,6 +76,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/favicon.ico":
 		http.ServeFile(w, r, filepath.Join(baseDir, "favicon.ico"))
+	case "/currentrelease":
+		fmt.Fprint(w,"3.10.1\nhttps://github.com/sqlitebrowser/sqlitebrowser/releases/tag/v3.10.1\n")
 	case "/DB.Browser.for.SQLite-3.10.1-win64.exe":
 		serveDownload(w, ramCache[DB4S_3_10_1_WIN64], "DB.Browser.for.SQLite-3.10.1-win64.exe")
 	case "/DB.Browser.for.SQLite-3.10.1-win32.exe":
