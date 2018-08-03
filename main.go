@@ -16,7 +16,7 @@ const (
 )
 
 const (
-	DB4S_3_10_1_WIN32 = iota
+	DB4S_3_10_1_WIN32 = iota // The order needs to match the ramCache entries in the global var section
 	DB4S_3_10_1_WIN64
 	DB4S_3_10_1_OSX
 	DB4S_3_10_1_PORTABLE
@@ -33,6 +33,8 @@ type download struct {
 
 var (
 	ramCache = [4]download{
+		// These hard coded last modified timestamps are because we're working with existing files, so we provide the
+		// same ones already being used
 		{ // Win32
 			lastRFC1123: time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC1123),
 			lastRFC3339: time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC).Format(time.RFC3339),
@@ -52,6 +54,14 @@ var (
 	}
 )
 
+// Populates a cache entry
+func cache(cacheEntry download) {
+	cacheEntry.reader = bytes.NewReader(cacheEntry.mem)
+	cacheEntry.size = fmt.Sprintf("%d", len(cacheEntry.mem))
+	cacheEntry.ready = true
+}
+
+// Handler for download requests
 func handler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Log the downloads, so we don't lose the ability to count download numbers over time
 	switch r.URL.Path {
@@ -91,27 +101,19 @@ func main() {
 	var err error
 	ramCache[DB4S_3_10_1_WIN32].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1-win32.exe"))
 	if err == nil {
-		ramCache[DB4S_3_10_1_WIN32].reader = bytes.NewReader(ramCache[DB4S_3_10_1_WIN32].mem)
-		ramCache[DB4S_3_10_1_WIN32].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_WIN32].mem))
-		ramCache[DB4S_3_10_1_WIN32].ready = true
+		cache(ramCache[DB4S_3_10_1_WIN32])
 	}
 	ramCache[DB4S_3_10_1_WIN64].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1-win64.exe"))
 	if err == nil {
-		ramCache[DB4S_3_10_1_WIN64].reader = bytes.NewReader(ramCache[DB4S_3_10_1_WIN64].mem)
-		ramCache[DB4S_3_10_1_WIN64].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_WIN64].mem))
-		ramCache[DB4S_3_10_1_WIN64].ready = true
+		cache(ramCache[DB4S_3_10_1_WIN64])
 	}
 	ramCache[DB4S_3_10_1_OSX].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "DB.Browser.for.SQLite-3.10.1.dmg"))
 	if err == nil {
-		ramCache[DB4S_3_10_1_OSX].reader = bytes.NewReader(ramCache[DB4S_3_10_1_OSX].mem)
-		ramCache[DB4S_3_10_1_OSX].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_OSX].mem))
-		ramCache[DB4S_3_10_1_OSX].ready = true
+		cache(ramCache[DB4S_3_10_1_OSX])
 	}
 	ramCache[DB4S_3_10_1_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(dataDir, "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"))
 	if err == nil {
-		ramCache[DB4S_3_10_1_PORTABLE].reader = bytes.NewReader(ramCache[DB4S_3_10_1_PORTABLE].mem)
-		ramCache[DB4S_3_10_1_PORTABLE].size = fmt.Sprintf("%d", len(ramCache[DB4S_3_10_1_PORTABLE].mem))
-		ramCache[DB4S_3_10_1_PORTABLE].ready = true
+		cache(ramCache[DB4S_3_10_1_PORTABLE])
 	}
 
 	http.HandleFunc("/", handler)
@@ -127,6 +129,7 @@ func main() {
 	// TODO: Close and flush the log file.  Also not sure if this is really needed.
 }
 
+// Serves downloads from cache
 func serveDownload(w http.ResponseWriter, cacheEntry download, fileName string) {
 	// If the file isn't cached, check if it's ready to be cached yet
 	var err error
