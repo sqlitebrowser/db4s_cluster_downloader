@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -61,6 +62,7 @@ var (
 				time.Date(2017, time.September, 28, 19, 32, 48, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
+	tmpl *template.Template
 )
 
 // Populates a cache entry
@@ -87,19 +89,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	case "/SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe":
 		serveDownload(w, ramCache[DB4S_3_10_1_PORTABLE], "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
 	default:
-		// TODO: Use a template instead
-		fmt.Fprintf(w, "<html><head><title>DB Browser for SQLite download cluster</title></head>")
-		fmt.Fprintf(w, "<body>Welcome to the DB Browser for SQLite downloads.")
-		fmt.Fprintf(w, "<br /><br />")
-		//fmt.Fprintf(w, "Requested path: %s", r.URL.Path)
-		//fmt.Fprintf(w, "<br /><br />")
-		fmt.Fprintf(w, "Available downloads:")
-		fmt.Fprintf(w, "<ul>")
-		fmt.Fprintf(w, "<li><a href=\"/DB.Browser.for.SQLite-3.10.1.dmg\">DB.Browser.for.SQLite-3.10.1.dmg</a> - For macOS</li>")
-		fmt.Fprintf(w, "<li><a href=\"/DB.Browser.for.SQLite-3.10.1-win32.exe\">DB.Browser.for.SQLite-3.10.1-win32.exe</a> - For Windows 32-bit</li>")
-		fmt.Fprintf(w, "<li><a href=\"/DB.Browser.for.SQLite-3.10.1-win64.exe\">DB.Browser.for.SQLite-3.10.1-win64.exe</a> - For Windows 64-bit</li>")
-		fmt.Fprintf(w, "<li><a href=\"/SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe\">SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe</a> - PortableApp for Windows</li>")
-		fmt.Fprintf(w, "</ul></body></html>")
+		// Send the index page listing
+		err := tmpl.Execute(w, nil)
+		if err != nil {
+			fmt.Fprintf(w, "Error: %v", err)
+			log.Printf("Error: %s", err)
+		}
 	}
 }
 
@@ -107,6 +102,9 @@ func main() {
 	// TODO: Open log file
 
 	// TODO: Connect to PG
+
+	// Load our HTML template
+	tmpl = template.Must(template.New("downloads").ParseFiles(filepath.Join(baseDir, "template.html"))).Lookup("downloads")
 
 	// Load the files into ram from the data directory
 	var err error
