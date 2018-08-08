@@ -1,7 +1,7 @@
 version: "3"
 services:
   web:
-    image: justinclift/db4s-downloader:v0.1.x64
+    image: justinclift/db4s-downloader:v0.4.x64
     deploy:
       replicas: 5
       resources:
@@ -13,9 +13,20 @@ services:
     ports:
       - "443:443"
     volumes:
-      - "/home/docker/data:/data"
+      - "/etc/letsencrypt/live/download.sqlitebrowser.org:/data"
     networks:
       - webnet
+#  visualizer:
+#    image: dockersamples/visualizer:stable
+#    ports:
+#      - "8080:8080"
+#    volumes:
+#      - "/var/run/docker.sock:/var/run/docker.sock"
+#    deploy:
+#      placement:
+#        constraints: [node.role == manager]
+#    networks:
+#      - webnet
 #  pg:
 #    image: postgres
 #    restart: always

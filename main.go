@@ -127,7 +127,7 @@ func main() {
 
 	http.HandleFunc("/", handler)
 	fmt.Println("Listening on port 443...")
-	err = http.ListenAndServeTLS(":443", filepath.Join(dataDir, "cert.pem"), filepath.Join(dataDir, "key.pem"), nil)
+	err = http.ListenAndServeTLS(":443", filepath.Join(dataDir, "cert.pem"), filepath.Join(dataDir, "privkey.pem"), nil)
 	if err != nil {
 		// TODO: Make sure problems get recorded somewhere outside the container
 		log.Fatal(err)
