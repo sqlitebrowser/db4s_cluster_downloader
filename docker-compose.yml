@@ -1,7 +1,7 @@
 version: "3"
 services:
   web:
-    image: justinclift/db4s-downloader:v0.5.armv8
+    image: justinclift/db4s-downloader:v0.8.armv8
     deploy:
       replicas: 5
       resources:
@@ -13,7 +13,8 @@ services:
     ports:
       - "443:443"
     volumes:
-      - "/etc/letsencrypt/archive/download.sqlitebrowser.org:/data"
+      - "/etc/letsencrypt/archive/download.sqlitebrowser.org:/certs"
+      - "/root/data:/data"
     networks:
       - webnet
 #  visualizer:
@@ -27,13 +28,6 @@ services:
 #        constraints: [node.role == manager]
 #    networks:
 #      - webnet
-#  pg:
-#    image: postgres
-#    restart: always
-#    environment:
-#      POSTGRES_PASSWORD: example
-#    volumes:
-#      - "/var/lib/postgresql/data:/var/lib/postgresql/data"
 networks:
   webnet:
 
