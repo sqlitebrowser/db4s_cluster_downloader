@@ -161,7 +161,7 @@ func serveDownload(w http.ResponseWriter, cacheEntry download, fileName string) 
 		w.Header().Set("Content-Length", cacheEntry.size)
 		_, err = cacheEntry.reader.WriteTo(w)
 		if err != nil {
-			log.Printf("Error serving DB.Browser.for.SQLite-3.10.1-win32.exe: %v\n", err)
+			log.Printf("Error serving %s: %v\n", fileName, err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
