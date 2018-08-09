@@ -151,12 +151,26 @@ func logDownload(r *http.Request, bytesSent int64, status int) (err error) {
 	if r.Referer() == "" {
 		ref.Status = pgtype.Null
 	}
+
+	// Try and extract more useful client IP info
+	// Note - written while half asleep. :/
+	clientIP := &pgtype.Text{
+		String: r.Header.Get("X-Forwarded-For"),
+		Status: pgtype.Present,
+	}
+	if clientIP.String == "" {
+		clientIP.String = r.RemoteAddr
+		if clientIP.String == "" {
+			clientIP.Status = pgtype.Null
+		}
+	}
+
 	dbQuery := `
 		INSERT INTO download_log (remote_addr, remote_user, request_time, request_type, request, protocol, status, body_bytes_sent, http_referer, http_user_agent)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 	res, err := pg.Exec(dbQuery,
 		// remote_addr
-		r.RemoteAddr,
+		clientIP,
 		// remote_user
 		&pgtype.Text{String: "", Status: pgtype.Null,}, // Hard coded empty string for now
 		// request_time

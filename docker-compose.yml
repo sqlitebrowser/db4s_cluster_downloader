@@ -1,7 +1,7 @@
 version: "3"
 services:
   web:
-    image: justinclift/db4s-downloader:v0.9.armv8
+    image: justinclift/db4s-downloader:v0.10.armv8
     deploy:
       replicas: 5
       resources:
