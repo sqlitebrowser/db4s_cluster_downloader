@@ -138,7 +138,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "Error: %v", err)
 			log.Printf("Error: %s", err)
 		}
-		logDownload(r, -1, http.StatusOK) // TODO: Find out the actual size sent for the index page
+		logDownload(r, 771, http.StatusOK) // The index page is 771 bytes in length
 	}
 }
 
