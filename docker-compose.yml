@@ -1,33 +1,26 @@
-version: "3"
+version: "3.6"
 services:
   web:
     image: justinclift/db4s-downloader:v0.10.armv8
     deploy:
-      replicas: 5
+      replicas: 2
       resources:
         limits:
-          cpus: "1.0"
-          memory: 100M
+          cpus: "3.0"
+          memory: 500M
       restart_policy:
         condition: on-failure
     ports:
-      - "443:443"
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
     volumes:
       - "/etc/letsencrypt/archive/download.sqlitebrowser.org:/certs"
       - "/root/data:/data"
     networks:
-      - webnet
-#  visualizer:
-#    image: dockersamples/visualizer:stable
-#    ports:
-#      - "8080:8080"
-#    volumes:
-#      - "/var/run/docker.sock:/var/run/docker.sock"
-#    deploy:
-#      placement:
-#        constraints: [node.role == manager]
-#    networks:
-#      - webnet
+      - bridge
 networks:
-  webnet:
-
+  bridge:
+    external: true
+    name: bridge
