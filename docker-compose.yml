@@ -18,9 +18,3 @@ services:
     volumes:
       - "/etc/letsencrypt/archive/download.sqlitebrowser.org:/certs"
       - "/root/data:/data"
-    networks:
-      - bridge
-networks:
-  bridge:
-    external: true
-    name: bridge
