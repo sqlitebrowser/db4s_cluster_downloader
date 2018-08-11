@@ -18,13 +18,12 @@ import (
 
 const (
 	// Directories to load things from
-	//baseDir = "/home/jc/git_repos/src/github.com/justinclift/db4s_cluster_downloader" // For debugging locally
-	baseDir = "/go/src/github.com/justinclift/db4s_cluster_downloader" // Location of the go program
-	certDir = "/certs" // Location of the TLS certificates.  Shared with the host.
-	dataDir = "/data" // Directory where the downloads are located.  Shared with the host.
+	baseDir = "/root/git_repos/db4s_cluster_downloader" // Location of the git source
+	certDir = "/etc/letsencrypt/live/download.sqlitebrowser.org" // Location of the TLS certificates.  Shared with the host.
+	dataDir = "/root/data" // Directory where the downloads are located.  Shared with the host.
 
 	// Application config settings
-	configFile = "/data/config.toml"
+	configFile = "/root/data/config.toml"
 
 	// Port to listen on
 	listenPort = 443
@@ -257,7 +256,8 @@ func main() {
 
 	http.HandleFunc("/", handler)
 	fmt.Printf("Listening on port %d...\n", listenPort)
-	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", listenPort), filepath.Join(certDir, "cert1.pem"), filepath.Join(certDir, "privkey1.pem"), nil)
+	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", listenPort), filepath.Join(certDir, "fullchain.pem"), filepath.Join(certDir, "privkey.pem"), nil)
+	//err = http.ListenAndServeTLS(fmt.Sprintf(":%d", listenPort), filepath.Join(certDir, "cert.pem"), filepath.Join(certDir, "privkey.pem"), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
