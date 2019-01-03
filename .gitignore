@@ -1,2 +1,5 @@
-.idea
+certs/
+data/
 vendor/
+.idea
+config.toml
