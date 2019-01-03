@@ -33,6 +33,14 @@
   version = "v3.3.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:17ef51796c83136a4cffa195fa1dadd440b31edef1c01407406dc07b94dc0543"
+  name = "github.com/minio/go-homedir"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4d76aabb80b22bad8695d3904e943f1fb5e6199f"
+
+[[projects]]
   digest = "1:450b7623b185031f3a456801155c8320209f75d0d4c4e633c6b1e59d44d6e392"
   name = "github.com/opentracing/opentracing-go"
   packages = [
@@ -101,6 +109,7 @@
     "github.com/BurntSushi/toml",
     "github.com/jackc/pgx",
     "github.com/jackc/pgx/pgtype",
+    "github.com/minio/go-homedir",
     "github.com/opentracing/opentracing-go",
     "github.com/uber/jaeger-client-go",
     "github.com/uber/jaeger-client-go/config",

@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,13 +21,10 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
+	"github.com/minio/go-homedir"
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/config"
-)
-
-const (
-	configFile = "config.toml"
 )
 
 const (
@@ -72,7 +70,8 @@ type dbEntry struct {
 	port      pgtype.Int4
 }
 
-type download struct {
+// Stores each of the files available for download, along with its metadata
+type cacheEntry struct {
 	lastRFC1123 string // Pre-rendered string
 	disposition string // Pre-rendered string
 	mem         []byte
@@ -89,7 +88,7 @@ var (
 	pg *pgx.ConnPool
 
 	// Cached downloads
-	ramCache = [4]download{
+	ramCache = [4]cacheEntry{
 		// These hard coded last modified timestamps are because we're working with existing files, so we provide the
 		// same ones already being used
 		{ // DB4S 3.10.1 Win32
@@ -121,8 +120,102 @@ var (
 	tmpl   *template.Template
 )
 
+func main() {
+	// Override config file location via environment variables
+	var err error
+	var configFile string
+	tempString := os.Getenv("CONFIG_FILE")
+	if tempString == "" {
+		// TODO: Might be a good idea to add permission checks of the dir & conf file, to ensure they're not
+		//       world readable.  Similar in concept to what ssh does for its config files.
+		userHome, err := homedir.Dir()
+		if err != nil {
+			log.Fatalf("User home directory couldn't be determined: %s", "\n")
+		}
+		configFile = filepath.Join(userHome, ".db4s", "downloader_config.toml")
+	} else {
+		configFile = tempString
+	}
+
+	// Read our configuration settings
+	if _, err = toml.DecodeFile(configFile, &Conf); err != nil {
+		log.Fatal(err)
+	}
+
+	// Set up initial Jaeger service and span
+	var closer io.Closer
+	tracer, closer = initJaeger("db4s_cluster_downloader")
+	defer closer.Close()
+	opentracing.SetGlobalTracer(tracer)
+
+	// * Connect to PG database *
+
+	pgSpan := tracer.StartSpan("connect postgres")
+
+	// Setup the PostgreSQL config
+	pgConfig := new(pgx.ConnConfig)
+	pgConfig.Host = Conf.Pg.Server
+	pgConfig.Port = uint16(Conf.Pg.Port)
+	pgConfig.User = Conf.Pg.Username
+	pgConfig.Password = Conf.Pg.Password
+	pgConfig.Database = Conf.Pg.Database
+	clientTLSConfig := tls.Config{InsecureSkipVerify: true}
+	if Conf.Pg.SSL {
+		// TODO: Likely need to add the PG TLS cert file info here
+		pgConfig.TLSConfig = &clientTLSConfig
+	} else {
+		pgConfig.TLSConfig = nil
+	}
+
+	// Connect to PG
+	pgPoolConfig := pgx.ConnPoolConfig{*pgConfig, Conf.Pg.NumConnections, nil, 5 * time.Second}
+	pg, err = pgx.NewConnPool(pgPoolConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Log successful connection
+	log.Printf("Connected to PostgreSQL server: %v:%v\n", Conf.Pg.Server, uint16(Conf.Pg.Port))
+	pgSpan.Finish()
+
+	// Load our HTML template
+	// TODO: Embed the template in the compiled binary
+	tmpl = template.Must(template.New("downloads").ParseFiles(filepath.Join(Conf.Paths.BaseDir, "template.html"))).Lookup("downloads")
+
+	// Load the files into ram from the data directory
+	cacheSpan := tracer.StartSpan("create cache entries")
+	ctx := opentracing.ContextWithSpan(context.Background(), cacheSpan)
+	ramCache[DB4S_3_10_1_WIN32].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win32.exe"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_10_1_WIN32])
+	}
+	ramCache[DB4S_3_10_1_WIN64].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win64.exe"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_10_1_WIN64])
+	}
+	ramCache[DB4S_3_10_1_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1.dmg"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_10_1_OSX])
+	}
+	ramCache[DB4S_3_10_1_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_10_1_PORTABLE])
+	}
+	cacheSpan.Finish()
+
+	http.HandleFunc("/", handler)
+	fmt.Printf("Listening on port %d...\n", Conf.Server.Port)
+	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", Conf.Server.Port), filepath.Join(Conf.Paths.CertDir, "fullchain.pem"), filepath.Join(Conf.Paths.CertDir, "privkey.pem"), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Close the PG connection gracefully
+	pg.Close()
+}
+
 // Populates a cache entry
-func cache(ctx context.Context, cacheEntry download) {
+func cache(ctx context.Context, cacheEntry cacheEntry) {
 	span, _ := opentracing.StartSpanFromContext(ctx, "populate cache entry")
 	defer span.Finish()
 	span.SetTag("Entry", cacheEntry.disposition)
@@ -436,111 +529,32 @@ func logRequest(ctx context.Context, r *http.Request, bytesSent int64, status in
 	return
 }
 
-func main() {
-	// Read our configuration settings
-	var err error
-	if _, err = toml.DecodeFile(configFile, &Conf); err != nil {
-		log.Fatal(err)
-	}
-
-	// Set up initial Jaeger service and span
-	var closer io.Closer
-	tracer, closer = initJaeger("db4s_cluster_downloader")
-	defer closer.Close()
-	opentracing.SetGlobalTracer(tracer)
-
-	// * Connect to PG database *
-
-	pgSpan := tracer.StartSpan("connect postgres")
-
-	// Setup the PostgreSQL config
-	pgConfig := new(pgx.ConnConfig)
-	pgConfig.Host = Conf.Pg.Server
-	pgConfig.Port = uint16(Conf.Pg.Port)
-	pgConfig.User = Conf.Pg.Username
-	pgConfig.Password = Conf.Pg.Password
-	pgConfig.Database = Conf.Pg.Database
-	clientTLSConfig := tls.Config{InsecureSkipVerify: true}
-	if Conf.Pg.SSL {
-		// TODO: Likely need to add the PG TLS cert file info here
-		pgConfig.TLSConfig = &clientTLSConfig
-	} else {
-		pgConfig.TLSConfig = nil
-	}
-
-	// Connect to PG
-	pgPoolConfig := pgx.ConnPoolConfig{*pgConfig, Conf.Pg.NumConnections, nil, 5 * time.Second}
-	pg, err = pgx.NewConnPool(pgPoolConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Log successful connection
-	log.Printf("Connected to PostgreSQL server: %v:%v\n", Conf.Pg.Server, uint16(Conf.Pg.Port))
-	pgSpan.Finish()
-
-	// Load our HTML template
-	// TODO: Embed the template in the compiled binary
-	tmpl = template.Must(template.New("downloads").ParseFiles(filepath.Join(Conf.Paths.BaseDir, "template.html"))).Lookup("downloads")
-
-	// Load the files into ram from the data directory
-	cacheSpan := tracer.StartSpan("create cache entries")
-	ctx := opentracing.ContextWithSpan(context.Background(), cacheSpan)
-	ramCache[DB4S_3_10_1_WIN32].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win32.exe"))
-	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_WIN32])
-	}
-	ramCache[DB4S_3_10_1_WIN64].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win64.exe"))
-	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_WIN64])
-	}
-	ramCache[DB4S_3_10_1_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1.dmg"))
-	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_OSX])
-	}
-	ramCache[DB4S_3_10_1_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"))
-	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_PORTABLE])
-	}
-	cacheSpan.Finish()
-
-	http.HandleFunc("/", handler)
-	fmt.Printf("Listening on port %d...\n", Conf.Server.Port)
-	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", Conf.Server.Port), filepath.Join(Conf.Paths.CertDir, "fullchain.pem"), filepath.Join(Conf.Paths.CertDir, "privkey.pem"), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Close the PG connection gracefully
-	pg.Close()
-}
-
 // Serves downloads from cache
-func serveDownload(ctx context.Context, w http.ResponseWriter, r *http.Request, cacheEntry download, fileName string) {
+func serveDownload(ctx context.Context, w http.ResponseWriter, r *http.Request, download cacheEntry, fileName string) {
 	span, newCtx := opentracing.StartSpanFromContext(ctx, "serve download")
 	defer span.Finish()
 	span.SetTag("Request", fileName)
 
 	// If the file isn't cached, check if it's ready to be cached yet
 	var err error
-	if !cacheEntry.ready {
-		cacheEntry.mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, fileName))
+	if !download.ready {
+		download.mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, fileName))
 		if err == nil {
 			// TODO: It'd probably be a good idea to check the SHA256 of the file contents before marking the cache as valid
 			// Add the download to the cache
-			cacheEntry.reader = bytes.NewReader(cacheEntry.mem)
-			cacheEntry.size = fmt.Sprintf("%d", len(cacheEntry.mem))
-			cacheEntry.ready = true
+			download.reader = bytes.NewReader(download.mem)
+			download.size = fmt.Sprintf("%d", len(download.mem))
+			download.ready = true
 		}
 	}
 
 	// Send the file (if cached)
-	if cacheEntry.ready {
-		w.Header().Set("Last-Modified", cacheEntry.lastRFC1123)
-		w.Header().Set("Content-Disposition", cacheEntry.disposition)
+	if download.ready {
+		w.Header().Set("Last-Modified", download.lastRFC1123)
+		w.Header().Set("Content-Disposition", download.disposition)
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Length", cacheEntry.size)
-		bytesSent, err := cacheEntry.reader.WriteTo(w)
+		w.Header().Set("Content-Length", download.size)
+		bytesSent, err := download.reader.WriteTo(w)
 		if err != nil {
 			log.Printf("Error serving %s: %v\n", fileName, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
