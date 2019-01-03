@@ -122,7 +122,11 @@ var (
 )
 
 // Populates a cache entry
-func cache(cacheEntry download) {
+func cache(ctx context.Context, cacheEntry download) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "populate cache entry")
+	defer span.Finish()
+	span.SetTag("Entry", cacheEntry.disposition)
+
 	cacheEntry.reader = bytes.NewReader(cacheEntry.mem)
 	cacheEntry.size = fmt.Sprintf("%d", len(cacheEntry.mem))
 	cacheEntry.ready = true
@@ -130,38 +134,45 @@ func cache(cacheEntry download) {
 
 // Handler for download requests
 func handler(w http.ResponseWriter, r *http.Request) {
-	span := tracer.StartSpan("handler")
+	span := tracer.StartSpan("page handler")
 	defer span.Finish()
 	ctx := opentracing.ContextWithSpan(context.Background(), span)
 
 	var err error
 	switch r.URL.Path {
 	case "/favicon.ico":
+		span.SetTag("Request", "favicon.ico")
 		http.ServeFile(w, r, filepath.Join(Conf.Paths.BaseDir, "favicon.ico"))
-		err = logDownload(ctx, r, 90022, http.StatusOK) // 90022 is the file size of favicon.ico in bytes
+		err = logRequest(ctx, r, 90022, http.StatusOK) // 90022 is the file size of favicon.ico in bytes
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
 	case "/currentrelease":
+		span.SetTag("Request", "currentrelease")
 		bytesSent, err := fmt.Fprint(w, "3.10.1\nhttps://github.com/sqlitebrowser/sqlitebrowser/releases/tag/v3.10.1\n")
 		if err != nil {
 			log.Printf("Error serving currentrelease: %v\n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = logDownload(ctx, r, int64(bytesSent), http.StatusOK)
+		err = logRequest(ctx, r, int64(bytesSent), http.StatusOK)
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
 	case "/DB.Browser.for.SQLite-3.10.1-win64.exe":
-		serveDownload(w, r, ramCache[DB4S_3_10_1_WIN64], "DB.Browser.for.SQLite-3.10.1-win64.exe")
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.10.1-win64.exe")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_WIN64], "DB.Browser.for.SQLite-3.10.1-win64.exe")
 	case "/DB.Browser.for.SQLite-3.10.1-win32.exe":
-		serveDownload(w, r, ramCache[DB4S_3_10_1_WIN32], "DB.Browser.for.SQLite-3.10.1-win32.exe")
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.10.1-win32.exe")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_WIN32], "DB.Browser.for.SQLite-3.10.1-win32.exe")
 	case "/DB.Browser.for.SQLite-3.10.1.dmg":
-		serveDownload(w, r, ramCache[DB4S_3_10_1_OSX], "DB.Browser.for.SQLite-3.10.1.dmg")
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.10.1.dmg")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_OSX], "DB.Browser.for.SQLite-3.10.1.dmg")
 	case "/SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe":
-		serveDownload(w, r, ramCache[DB4S_3_10_1_PORTABLE], "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
+		span.SetTag("Request", "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_PORTABLE], "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
 	default:
+		span.SetTag("Request", "index page")
 		if err != nil {
 			_, e := fmt.Fprintf(w, "Error: %v", err)
 			log.Printf("Error: %s", e)
@@ -174,7 +185,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error: %s", e)
 			log.Printf("Error: %s", err)
 		}
-		err = logDownload(ctx, r, 771, http.StatusOK) // The index page is 771 bytes in length
+		err = logRequest(ctx, r, 771, http.StatusOK) // The index page is 771 bytes in length
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
@@ -200,8 +211,8 @@ func initJaeger(service string) (opentracing.Tracer, io.Closer) {
 	return tracer, closer
 }
 
-func logDownload(ctx context.Context, r *http.Request, bytesSent int64, status int) (err error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "logDownload")
+func logRequest(ctx context.Context, r *http.Request, bytesSent int64, status int) (err error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "log request")
 	defer span.Finish()
 
 	// Use the new v3 pgx/pgtype structures
@@ -434,13 +445,13 @@ func main() {
 
 	// Set up initial Jaeger service and span
 	var closer io.Closer
-	tracer, closer = initJaeger("db4s_download_log_converter")
+	tracer, closer = initJaeger("db4s_cluster_downloader")
 	defer closer.Close()
 	opentracing.SetGlobalTracer(tracer)
 
 	// * Connect to PG database *
 
-	pgSpan := tracer.StartSpan("connect-postgres")
+	pgSpan := tracer.StartSpan("connect postgres")
 
 	// Setup the PostgreSQL config
 	pgConfig := new(pgx.ConnConfig)
@@ -473,22 +484,25 @@ func main() {
 	tmpl = template.Must(template.New("downloads").ParseFiles(filepath.Join(Conf.Paths.BaseDir, "template.html"))).Lookup("downloads")
 
 	// Load the files into ram from the data directory
+	cacheSpan := tracer.StartSpan("create cache entries")
+	ctx := opentracing.ContextWithSpan(context.Background(), cacheSpan)
 	ramCache[DB4S_3_10_1_WIN32].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win32.exe"))
 	if err == nil {
-		cache(ramCache[DB4S_3_10_1_WIN32])
+		cache(ctx, ramCache[DB4S_3_10_1_WIN32])
 	}
 	ramCache[DB4S_3_10_1_WIN64].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win64.exe"))
 	if err == nil {
-		cache(ramCache[DB4S_3_10_1_WIN64])
+		cache(ctx, ramCache[DB4S_3_10_1_WIN64])
 	}
 	ramCache[DB4S_3_10_1_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1.dmg"))
 	if err == nil {
-		cache(ramCache[DB4S_3_10_1_OSX])
+		cache(ctx, ramCache[DB4S_3_10_1_OSX])
 	}
 	ramCache[DB4S_3_10_1_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"))
 	if err == nil {
-		cache(ramCache[DB4S_3_10_1_PORTABLE])
+		cache(ctx, ramCache[DB4S_3_10_1_PORTABLE])
 	}
+	cacheSpan.Finish()
 
 	http.HandleFunc("/", handler)
 	fmt.Printf("Listening on port %d...\n", Conf.Server.Port)
@@ -502,10 +516,10 @@ func main() {
 }
 
 // Serves downloads from cache
-func serveDownload(w http.ResponseWriter, r *http.Request, cacheEntry download, fileName string) {
-	span := tracer.StartSpan("serveDownload")
+func serveDownload(ctx context.Context, w http.ResponseWriter, r *http.Request, cacheEntry download, fileName string) {
+	span, newCtx := opentracing.StartSpanFromContext(ctx, "serve download")
 	defer span.Finish()
-	ctx := opentracing.ContextWithSpan(context.Background(), span)
+	span.SetTag("Request", fileName)
 
 	// If the file isn't cached, check if it's ready to be cached yet
 	var err error
@@ -532,13 +546,13 @@ func serveDownload(w http.ResponseWriter, r *http.Request, cacheEntry download, 
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			// TODO: Catch when an error occurs (eg client aborts download), and log that too.  Probably need extra
 			//       fields added to the database for holding the info.
-			err = logDownload(ctx, r, bytesSent, http.StatusBadRequest)
+			err = logRequest(newCtx, r, bytesSent, http.StatusBadRequest)
 			if err != nil {
 				log.Printf("Error: %s", err)
 			}
 			return
 		}
-		err = logDownload(ctx, r, bytesSent, http.StatusOK)
+		err = logRequest(newCtx, r, bytesSent, http.StatusOK)
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
@@ -548,7 +562,7 @@ func serveDownload(w http.ResponseWriter, r *http.Request, cacheEntry download, 
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
-		err = logDownload(ctx, r, 17, http.StatusNotFound)
+		err = logRequest(newCtx, r, 17, http.StatusNotFound)
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
