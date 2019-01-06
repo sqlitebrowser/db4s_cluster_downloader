@@ -123,9 +123,8 @@ var (
 func main() {
 	// Override config file location via environment variables
 	var err error
-	var configFile string
-	tempString := os.Getenv("CONFIG_FILE")
-	if tempString == "" {
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
 		// TODO: Might be a good idea to add permission checks of the dir & conf file, to ensure they're not
 		//       world readable.  Similar in concept to what ssh does for its config files.
 		userHome, err := homedir.Dir()
@@ -133,8 +132,6 @@ func main() {
 			log.Fatalf("User home directory couldn't be determined: %s", "\n")
 		}
 		configFile = filepath.Join(userHome, ".db4s", "downloader_config.toml")
-	} else {
-		configFile = tempString
 	}
 
 	// Read our configuration settings
