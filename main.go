@@ -43,6 +43,7 @@ type TomlConfig struct {
 }
 type JaegerInfo struct {
 	CollectorEndPoint string
+	Enable            bool // Should Jaeger be used?
 }
 type PathInfo struct {
 	BaseDir string // Location of the git source
@@ -83,9 +84,6 @@ type cacheEntry struct {
 var (
 	// Application config
 	Conf TomlConfig
-
-	// Use Jaeger?
-	enableJaeger = false
 
 	// PostgreSQL Connection pool
 	pg *pgx.ConnPool
@@ -288,7 +286,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 // initJaeger returns an instance of Jaeger Tracer
 func initJaeger(service string) (opentracing.Tracer, io.Closer) {
 	samplerConst := 1.0
-	if !enableJaeger {
+	if !Conf.Jaeger.Enable {
 		samplerConst = 0.0
 	}
 	cfg := &config.Configuration{
