@@ -84,6 +84,9 @@ var (
 	// Application config
 	Conf TomlConfig
 
+	// Use Jaeger?
+	enableJaeger = false
+
 	// PostgreSQL Connection pool
 	pg *pgx.ConnPool
 
@@ -284,11 +287,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 // initJaeger returns an instance of Jaeger Tracer
 func initJaeger(service string) (opentracing.Tracer, io.Closer) {
+	samplerConst := 1.0
+	if !enableJaeger {
+		samplerConst = 0.0
+	}
 	cfg := &config.Configuration{
 		ServiceName: service,
 		Sampler: &config.SamplerConfig{
 			Type:  "const",
-			Param: 1,
+			Param: samplerConst,
 		},
 		Reporter: &config.ReporterConfig{
 			CollectorEndpoint: Conf.Jaeger.CollectorEndPoint,
