@@ -21,7 +21,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
-	"github.com/minio/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/config"
