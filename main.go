@@ -32,6 +32,11 @@ const (
 	DB4S_3_10_1_WIN64
 	DB4S_3_10_1_OSX
 	DB4S_3_10_1_PORTABLE
+	DB4S_3_11_0_WIN32_MSI
+	DB4S_3_11_0_WIN32_ZIP
+	DB4S_3_11_0_WIN64_MSI
+	DB4S_3_11_0_WIN64_ZIP
+	DB4S_3_11_0_OSX
 )
 
 // Configuration file
@@ -89,7 +94,7 @@ var (
 	pg *pgx.ConnPool
 
 	// Cached downloads
-	ramCache = [4]cacheEntry{
+	ramCache = [9]cacheEntry{
 		// These hard coded last modified timestamps are because we're working with existing files, so we provide the
 		// same ones already being used
 		{ // DB4S 3.10.1 Win32
@@ -115,6 +120,36 @@ var (
 			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
 				url.QueryEscape("SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"),
 				time.Date(2017, time.September, 28, 19, 32, 48, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.11.0 Win32 MSI
+			lastRFC1123: time.Date(2019, time.February, 5, 17, 33, 47, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.11.0-win32.msi"),
+				time.Date(2019, time.February, 5, 17, 33, 47, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.11.0 Win32 zip
+			lastRFC1123: time.Date(2019, time.February, 5, 17, 34, 1, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.11.0-win32.zip"),
+				time.Date(2019, time.February, 5, 17, 34, 1, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.11.0 Win64 MSI
+			lastRFC1123: time.Date(2019, time.February, 5, 17, 34, 21, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.11.0-win64.msi"),
+				time.Date(2019, time.February, 5, 17, 34, 21, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.11.0 Win64 zip
+			lastRFC1123: time.Date(2019, time.February, 5, 17, 34, 44, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.11.0-win64.zip"),
+				time.Date(2019, time.February, 5, 17, 34, 44, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.11.0 OSX
+			lastRFC1123: time.Date(2019, time.February, 7, 9, 50, 18, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.11.0.dmg"),
+				time.Date(2019, time.February, 7, 9, 50, 18, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
 	tracer opentracing.Tracer
@@ -199,6 +234,26 @@ func main() {
 	if err == nil {
 		cache(ctx, ramCache[DB4S_3_10_1_PORTABLE])
 	}
+	ramCache[DB4S_3_11_0_WIN32_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win32.msi"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_11_0_WIN32_MSI])
+	}
+	ramCache[DB4S_3_11_0_WIN32_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win32.zip"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_11_0_WIN32_ZIP])
+	}
+	ramCache[DB4S_3_11_0_WIN64_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win64.msi"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_11_0_WIN64_MSI])
+	}
+	ramCache[DB4S_3_11_0_WIN64_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win64.zip"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_11_0_WIN64_ZIP])
+	}
+	ramCache[DB4S_3_11_0_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0.dmg"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_11_0_OSX])
+	}
 	cacheSpan.Finish()
 
 	http.HandleFunc("/", handler)
@@ -262,6 +317,21 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	case "/SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe":
 		span.SetTag("Request", "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
 		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_PORTABLE], "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
+	case "/DB.Browser.for.SQLite-3.11.0-win32.msi":
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win32.msi")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN32_MSI], "DB.Browser.for.SQLite-3.11.0-win32.msi")
+	case "/DB.Browser.for.SQLite-3.11.0-win32.zip":
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win32.zip")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN32_ZIP], "DB.Browser.for.SQLite-3.11.0-win32.zip")
+	case "/DB.Browser.for.SQLite-3.11.0-win64.msi":
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win64.msi")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN64_MSI], "DB.Browser.for.SQLite-3.11.0-win64.msi")
+	case "/DB.Browser.for.SQLite-3.11.0-win64.zip":
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win64.zip")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN64_ZIP], "DB.Browser.for.SQLite-3.11.0-win64.zip")
+	case "/DB.Browser.for.SQLite-3.11.0.dmg":
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0.dmg")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_OSX], "DB.Browser.for.SQLite-3.11.0.dmg")
 	default:
 		span.SetTag("Request", "index page")
 		if err != nil {
@@ -276,7 +346,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error: %s", e)
 			log.Printf("Error: %s", err)
 		}
-		err = logRequest(ctx, r, 771, http.StatusOK) // The index page is 771 bytes in length
+		err = logRequest(ctx, r, 1385, http.StatusOK) // The index page is 1385 bytes in length
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
