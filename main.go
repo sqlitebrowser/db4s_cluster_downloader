@@ -42,6 +42,7 @@ const (
 	DB4S_3_11_1_WIN64_MSI
 	DB4S_3_11_1_WIN64_ZIP
 	DB4S_3_11_1_OSX
+	DB4S_3_11_1V2_OSX
 )
 
 // Configuration file
@@ -99,7 +100,7 @@ var (
 	pg *pgx.ConnPool
 
 	// Cached downloads
-	ramCache = [14]cacheEntry{
+	ramCache = [15]cacheEntry{
 		// These hard coded last modified timestamps are because we're working with existing files, so we provide the
 		// same ones already being used
 		{ // DB4S 3.10.1 Win32
@@ -185,6 +186,12 @@ var (
 			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
 				url.QueryEscape("DB.Browser.for.SQLite-3.11.1.dmg"),
 				time.Date(2019, time.February, 18, 10, 37, 48, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.11.1v2 OSX
+			lastRFC1123: time.Date(2019, time.February, 23, 9, 15, 10, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.11.1v2.dmg"),
+				time.Date(2019, time.February, 23, 9, 15, 10, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
 	tracer opentracing.Tracer
@@ -309,6 +316,10 @@ func main() {
 	if err == nil {
 		cache(ctx, ramCache[DB4S_3_11_1_OSX])
 	}
+	ramCache[DB4S_3_11_1V2_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.1v2.dmg"))
+	if err == nil {
+		cache(ctx, ramCache[DB4S_3_11_1V2_OSX])
+	}
 	cacheSpan.Finish()
 
 	http.HandleFunc("/", handler)
@@ -402,6 +413,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	case "/DB.Browser.for.SQLite-3.11.1.dmg":
 		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1.dmg")
 		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1_OSX], "DB.Browser.for.SQLite-3.11.1.dmg")
+	case "/DB.Browser.for.SQLite-3.11.1v2.dmg":
+		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1v2.dmg")
+		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1V2_OSX], "DB.Browser.for.SQLite-3.11.1v2.dmg")
 	default:
 		span.SetTag("Request", "index page")
 		if err != nil {
