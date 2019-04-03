@@ -419,7 +419,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 	case "/currentrelease":
 		span.SetTag("Request", "currentrelease")
-		bytesSent, err := fmt.Fprint(w, "3.11.1\nhttps://sqlitebrowser.org/blog/version-3-11-1-released\n")
+		bytesSent, err := fmt.Fprint(w, "3.11.2\nhttps://sqlitebrowser.org/blog/version-3-11-2-released\n")
 		if err != nil {
 			log.Printf("Error serving currentrelease: %v\n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
