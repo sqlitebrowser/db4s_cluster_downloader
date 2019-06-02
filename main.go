@@ -427,7 +427,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 	ctx := opentracing.ContextWithSpan(context.Background(), span)
 
-	// Set the maximum accepted database size for uploading
+	// Set the maximum accepted http request size, for safety
 	r.Body = http.MaxBytesReader(w, r.Body, 4096) // 4k seems like a reasonable max size
 
 	var err error
