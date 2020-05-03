@@ -2,3 +2,4 @@ certs/
 data/
 .idea
 config.toml
+db4s_cluster_downloader

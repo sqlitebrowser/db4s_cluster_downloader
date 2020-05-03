@@ -245,6 +245,9 @@ var (
 	}
 	tracer opentracing.Tracer
 	tmpl   *template.Template
+
+	// Is the PostgreSQL connection working?
+	usePG = true
 )
 
 func main() {
@@ -274,9 +277,8 @@ func main() {
 
 	// * Connect to PG database *
 
-	pgSpan := tracer.StartSpan("connect postgres")
-
 	// Setup the PostgreSQL config
+	pgSpan := tracer.StartSpan("connect postgres")
 	pgConfig := new(pgx.ConnConfig)
 	pgConfig.Host = Conf.Pg.Server
 	pgConfig.Port = uint16(Conf.Pg.Port)
@@ -295,11 +297,12 @@ func main() {
 	pgPoolConfig := pgx.ConnPoolConfig{*pgConfig, Conf.Pg.NumConnections, nil, 5 * time.Second}
 	pg, err = pgx.NewConnPool(pgPoolConfig)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Couldn't connect to PostgreSQL: '%s'. Continuing, but downloads won't be recorded.", err)
+		usePG = false
+	} else {
+		// Log successful connection
+		log.Printf("Connected to PostgreSQL server: %v:%v\n", Conf.Pg.Server, uint16(Conf.Pg.Port))
 	}
-
-	// Log successful connection
-	log.Printf("Connected to PostgreSQL server: %v:%v\n", Conf.Pg.Server, uint16(Conf.Pg.Port))
 	pgSpan.Finish()
 
 	// Load our HTML template
@@ -407,7 +410,9 @@ func main() {
 	}
 
 	// Close the PG connection gracefully
-	pg.Close()
+	if usePG {
+		pg.Close()
+	}
 }
 
 // Populates a cache entry
@@ -519,11 +524,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_PORTABLE_V2], "SQLiteDatabaseBrowserPortable_3.11.2_Rev_2_English.paf.exe")
 	default:
 		span.SetTag("Request", "index page")
-		if err != nil {
-			_, e := fmt.Fprintf(w, "Error: %v", err)
-			log.Printf("Error: %s", e)
-			log.Printf("Error: %s", err)
-		}
+
 		// Send the index page listing
 		err = tmpl.Execute(w, nil)
 		if err != nil {
@@ -562,226 +563,229 @@ func initJaeger(service string) (opentracing.Tracer, io.Closer) {
 }
 
 func logRequest(ctx context.Context, r *http.Request, bytesSent int64, status int) (err error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "log request")
-	defer span.Finish()
+	// Only log the download if the PostgreSQL connection is present
+	if usePG {
+		span, _ := opentracing.StartSpanFromContext(ctx, "log request")
+		defer span.Finish()
 
-	// Use the new v3 pgx/pgtype structures
-	ref := &pgtype.Text{
-		String: r.Referer(),
-		Status: pgtype.Present,
-	}
-	if r.Referer() == "" {
-		ref.Status = pgtype.Null
-	}
+		// Use the new v3 pgx/pgtype structures
+		ref := &pgtype.Text{
+			String: r.Referer(),
+			Status: pgtype.Present,
+		}
+		if r.Referer() == "" {
+			ref.Status = pgtype.Null
+		}
 
-	// Grab the client IP address
-	clientIP := dbEntry{
-		ipv4:      pgtype.Text{Status: pgtype.Null},
-		ipv6:      pgtype.Text{Status: pgtype.Null},
-		ipstrange: pgtype.Text{Status: pgtype.Null},
-		port:      pgtype.Int4{Status: pgtype.Null},
-	}
-	tempIP := r.Header.Get("X-Forwarded-For")
-	if tempIP == "" {
-		tempIP = r.RemoteAddr
-	}
-	if tempIP != "" {
-		// Determine if client IP address is IPv4 or IPv6, and split out the port number
-		if strings.HasPrefix(tempIP, "[") {
-			// * This is an IPv6 address *
+		// Grab the client IP address
+		clientIP := dbEntry{
+			ipv4:      pgtype.Text{Status: pgtype.Null},
+			ipv6:      pgtype.Text{Status: pgtype.Null},
+			ipstrange: pgtype.Text{Status: pgtype.Null},
+			port:      pgtype.Int4{Status: pgtype.Null},
+		}
+		tempIP := r.Header.Get("X-Forwarded-For")
+		if tempIP == "" {
+			tempIP = r.RemoteAddr
+		}
+		if tempIP != "" {
+			// Determine if client IP address is IPv4 or IPv6, and split out the port number
+			if strings.HasPrefix(tempIP, "[") {
+				// * This is an IPv6 address *
 
-			// When the string starts with "[", it seems to mean this is an IPv6 address with the port number on the
-			// end.  Along the lines of (say) [1:2:3:4:5:6]:789
-			s := strings.SplitN(tempIP, "]:", 2)
-			ip := strings.TrimLeft(s[0], "[")
+				// When the string starts with "[", it seems to mean this is an IPv6 address with the port number on the
+				// end.  Along the lines of (say) [1:2:3:4:5:6]:789
+				s := strings.SplitN(tempIP, "]:", 2)
+				ip := strings.TrimLeft(s[0], "[")
 
-			// Check for unexpected values
-			if len(s) != 2 {
-				// TODO: We should probably serialise the entire request, and store that instead, to allow for better
-				//       analysis of any weirdness we need to be aware of and/or adjust for
+				// Check for unexpected values
+				if len(s) != 2 {
+					// TODO: We should probably serialise the entire request, and store that instead, to allow for better
+					//       analysis of any weirdness we need to be aware of and/or adjust for
 
-				// We either have too many, or not enough fields.  Either way, store the IP address in the "strange"
-				// database field for future analysis
-				clientIP.ipstrange.String = ip
-				clientIP.ipstrange.Status = pgtype.Present
+					// We either have too many, or not enough fields.  Either way, store the IP address in the "strange"
+					// database field for future analysis
+					clientIP.ipstrange.String = ip
+					clientIP.ipstrange.Status = pgtype.Present
 
+				} else {
+					// * In theory, we should have the port number in [s]1 *
+
+					// Convert the port string into a number
+					if s[1] != "" {
+						p, e := strconv.ParseInt(s[1], 10, 32)
+						if e == nil {
+							clientIP.port.Status = pgtype.Present
+							clientIP.port.Int = int32(p)
+
+							// Double check the port number conversion was correct
+							tst := fmt.Sprintf("%d", clientIP.port.Int)
+							if tst != s[1] {
+								log.Printf("String conversion failed! s[1] = %v, p = %v, int32(p) = %v, port = %v\n",
+									s[1], p, int32(p), clientIP.port.Int)
+								clientIP.port.Status = pgtype.Null
+								clientIP.port.Int = 0
+							}
+						} else {
+							log.Printf("Conversion error: %v\n", e)
+						}
+					}
+
+					// Validate the likely IPv6 address
+					tmp := net.ParseIP(ip)
+					if tmp == nil {
+						// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
+						// for future investigation.
+						log.Printf("Strange address '%v'", tempIP)
+						clientIP.ipstrange.String = tempIP
+						clientIP.ipstrange.Status = pgtype.Present
+					}
+
+					// Double check the IP address, by seeing if converting it to a string matches what we were given
+					if tmp.String() != ip {
+						// Something seems a bit off with the IP address, so store it in the client_ip_strange field for
+						// future investigation
+						log.Printf("Strange address '%v'", tempIP)
+						clientIP.ipstrange.String = tempIP
+						clientIP.ipstrange.Status = pgtype.Present
+					}
+
+					clientIP.ipv6.String = ip
+					clientIP.ipv6.Status = pgtype.Present
+				}
 			} else {
-				// * In theory, we should have the port number in [s]1 *
+				// Client IP address doesn't seem to be in "[IPv6]:port" format, so it's likely IPv4, or IPv6 without a
+				// port number.  The occasional strange value does also turn up (eg 'unknown' or multiple IP's), so we
+				// need to recognise those and handle them as well.
 
-				// Convert the port string into a number
-				if s[1] != "" {
-					p, e := strconv.ParseInt(s[1], 10, 32)
-					if e == nil {
-						clientIP.port.Status = pgtype.Present
-						clientIP.port.Int = int32(p)
+				s := strings.SplitN(tempIP, ":", 2)
+				switch len(s) {
+				case 1:
+					// Most likely an IPv4 address without a port number.  Validate it to make sure.
+					if net.ParseIP(s[0]) == nil {
+						// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
+						// for future investigation.
+						log.Printf("Strange address '%v'", tempIP)
+						clientIP.ipstrange.String = tempIP
+						clientIP.ipstrange.Status = pgtype.Present
+						break
+					}
+
+					// Yep, it's just a standard IPv4 address missing a port number
+					clientIP.ipv4.String = s[0]
+					clientIP.ipv4.Status = pgtype.Present
+
+				case 2:
+					// Most likely an IPv4 address with a port number.  eg 1.2.3.4:56789
+
+					// Validate the IPv4 address
+					if net.ParseIP(s[0]) == nil {
+						// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
+						// for future investigation.
+						log.Printf("Strange address '%v'", tempIP)
+						clientIP.ipstrange.String = tempIP
+						clientIP.ipstrange.Status = pgtype.Present
+						break
+					}
+
+					// The IPv4 address is valid, so record that
+					clientIP.ipv4.String = s[0]
+					clientIP.ipv4.Status = pgtype.Present
+
+					// Validate the port number
+					if s[1] != "" {
+						p, e := strconv.ParseInt(s[1], 10, 32)
+						if e != nil {
+							log.Printf("Conversion error: %v\n", e)
+							break
+						}
 
 						// Double check the port number conversion was correct
-						tst := fmt.Sprintf("%d", clientIP.port.Int)
+						tst := fmt.Sprintf("%d", p)
 						if tst != s[1] {
 							log.Printf("String conversion failed! s[1] = %v, p = %v, int32(p) = %v, port = %v\n",
 								s[1], p, int32(p), clientIP.port.Int)
-							clientIP.port.Status = pgtype.Null
-							clientIP.port.Int = 0
+							break
 						}
-					} else {
-						log.Printf("Conversion error: %v\n", e)
+
+						// Ensure the port number is in the valid port range (0-65535)
+						if p < 0 || p > 65535 {
+							log.Printf("Port number %v outside valid port range\n", p)
+							break
+						}
+
+						// Port number seems ok, so record it
+						clientIP.port.Status = pgtype.Present
+						clientIP.port.Int = int32(p)
 					}
-				}
+				default:
+					// * Most likely an IPv6 address without a port number.  Along the lines of (say) "1:2:3:4:5:6" *
 
-				// Validate the likely IPv6 address
-				tmp := net.ParseIP(ip)
-				if tmp == nil {
-					// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
-					// for future investigation.
-					log.Printf("Strange address '%v'", tempIP)
-					clientIP.ipstrange.String = tempIP
-					clientIP.ipstrange.Status = pgtype.Present
-				}
+					// Validate the address
+					ip := net.ParseIP(s[0])
+					if ip == nil {
+						// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
+						// for future investigation.
+						log.Printf("Strange address '%v'", tempIP)
+						clientIP.ipstrange.String = tempIP
+						clientIP.ipstrange.Status = pgtype.Present
+						break
+					}
 
-				// Double check the IP address, by seeing if converting it to a string matches what we were given
-				if tmp.String() != ip {
-					// Something seems a bit off with the IP address, so store it in the client_ip_strange field for
-					// future investigation
-					log.Printf("Strange address '%v'", tempIP)
-					clientIP.ipstrange.String = tempIP
-					clientIP.ipstrange.Status = pgtype.Present
-				}
+					// Double check the IP address, by seeing if converting it to a string matches what we were given
+					if ip.String() != s[0] {
+						// Something seems a bit off with the IP address, so store it in the client_ip_strange field for
+						// future investigation
+						log.Printf("Strange address '%v'", tempIP)
+						clientIP.ipstrange.String = tempIP
+						clientIP.ipstrange.Status = pgtype.Present
+						break
+					}
 
-				clientIP.ipv6.String = ip
-				clientIP.ipv6.Status = pgtype.Present
+					// Seems ok so far, so lets store it in the IPv6 field
+					clientIP.ipv6.String = s[0]
+					clientIP.ipv6.Status = pgtype.Present
+				}
 			}
 		} else {
-			// Client IP address doesn't seem to be in "[IPv6]:port" format, so it's likely IPv4, or IPv6 without a
-			// port number.  The occasional strange value does also turn up (eg 'unknown' or multiple IP's), so we
-			// need to recognise those and handle them as well.
-
-			s := strings.SplitN(tempIP, ":", 2)
-			switch len(s) {
-			case 1:
-				// Most likely an IPv4 address without a port number.  Validate it to make sure.
-				if net.ParseIP(s[0]) == nil {
-					// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
-					// for future investigation.
-					log.Printf("Strange address '%v'", tempIP)
-					clientIP.ipstrange.String = tempIP
-					clientIP.ipstrange.Status = pgtype.Present
-					break
-				}
-
-				// Yep, it's just a standard IPv4 address missing a port number
-				clientIP.ipv4.String = s[0]
-				clientIP.ipv4.Status = pgtype.Present
-
-			case 2:
-				// Most likely an IPv4 address with a port number.  eg 1.2.3.4:56789
-
-				// Validate the IPv4 address
-				if net.ParseIP(s[0]) == nil {
-					// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
-					// for future investigation.
-					log.Printf("Strange address '%v'", tempIP)
-					clientIP.ipstrange.String = tempIP
-					clientIP.ipstrange.Status = pgtype.Present
-					break
-				}
-
-				// The IPv4 address is valid, so record that
-				clientIP.ipv4.String = s[0]
-				clientIP.ipv4.Status = pgtype.Present
-
-				// Validate the port number
-				if s[1] != "" {
-					p, e := strconv.ParseInt(s[1], 10, 32)
-					if e != nil {
-						log.Printf("Conversion error: %v\n", e)
-						break
-					}
-
-					// Double check the port number conversion was correct
-					tst := fmt.Sprintf("%d", p)
-					if tst != s[1] {
-						log.Printf("String conversion failed! s[1] = %v, p = %v, int32(p) = %v, port = %v\n",
-							s[1], p, int32(p), clientIP.port.Int)
-						break
-					}
-
-					// Ensure the port number is in the valid port range (0-65535)
-					if p < 0 || p > 65535 {
-						log.Printf("Port number %v outside valid port range\n", p)
-						break
-					}
-
-					// Port number seems ok, so record it
-					clientIP.port.Status = pgtype.Present
-					clientIP.port.Int = int32(p)
-				}
-			default:
-				// * Most likely an IPv6 address without a port number.  Along the lines of (say) "1:2:3:4:5:6" *
-
-				// Validate the address
-				ip := net.ParseIP(s[0])
-				if ip == nil {
-					// Not a valid IP address, so store the (complete) weird address in the client_ip_strange field
-					// for future investigation.
-					log.Printf("Strange address '%v'", tempIP)
-					clientIP.ipstrange.String = tempIP
-					clientIP.ipstrange.Status = pgtype.Present
-					break
-				}
-
-				// Double check the IP address, by seeing if converting it to a string matches what we were given
-				if ip.String() != s[0] {
-					// Something seems a bit off with the IP address, so store it in the client_ip_strange field for
-					// future investigation
-					log.Printf("Strange address '%v'", tempIP)
-					clientIP.ipstrange.String = tempIP
-					clientIP.ipstrange.Status = pgtype.Present
-					break
-				}
-
-				// Seems ok so far, so lets store it in the IPv6 field
-				clientIP.ipv6.String = s[0]
-				clientIP.ipv6.Status = pgtype.Present
-			}
+			// Can't determine client IP address
+			log.Printf("Unknown client IP address. :(")
 		}
-	} else {
-		// Can't determine client IP address
-		log.Printf("Unknown client IP address. :(")
-	}
 
-	dbQuery := `
+		dbQuery := `
 		INSERT INTO download_log (
 			client_ipv4, client_ipv6, client_ip_strange, client_port, remote_user, request_time, request_type, request,
 			protocol, status, body_bytes_sent, http_referer, http_user_agent)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
-	res, err := pg.Exec(dbQuery,
-		// IP address
-		&clientIP.ipv4, &clientIP.ipv6, &clientIP.ipstrange,
-		// client port
-		&clientIP.port,
-		// remote_user
-		&pgtype.Text{String: "", Status: pgtype.Null}, // Hard coded empty string for now
-		// request_time
-		time.Now().Format(time.RFC3339Nano),
-		// request_type
-		r.Method,
-		// request
-		fmt.Sprintf("%s", r.URL),
-		// protocol
-		r.Proto,
-		// status
-		status,
-		// body_bytes_sent
-		bytesSent,
-		// http_referer
-		ref,
-		// http_user_agent
-		r.Header.Get("User-Agent"))
-	if err != nil {
-		return err
-	}
-	if res.RowsAffected() != 1 {
-		return fmt.Errorf("something went wrong when inserting a new download entry.  # of entries affected != 1")
+		res, err := pg.Exec(dbQuery,
+			// IP address
+			&clientIP.ipv4, &clientIP.ipv6, &clientIP.ipstrange,
+			// client port
+			&clientIP.port,
+			// remote_user
+			&pgtype.Text{String: "", Status: pgtype.Null}, // Hard coded empty string for now
+			// request_time
+			time.Now().Format(time.RFC3339Nano),
+			// request_type
+			r.Method,
+			// request
+			fmt.Sprintf("%s", r.URL),
+			// protocol
+			r.Proto,
+			// status
+			status,
+			// body_bytes_sent
+			bytesSent,
+			// http_referer
+			ref,
+			// http_user_agent
+			r.Header.Get("User-Agent"))
+		if err != nil {
+			return err
+		}
+		if res.RowsAffected() != 1 {
+			return fmt.Errorf("something went wrong when inserting a new download entry.  # of entries affected != 1")
+		}
 	}
 	return
 }

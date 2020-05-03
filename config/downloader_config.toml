@@ -1,0 +1,20 @@
+[jaeger]
+CollectorEndPoint = "http://jaeger_server_name:14268/api/traces"
+enable = false
+
+[paths]
+baseDir = "/path to/go/src/github.com/sqlitebrowser/db4s_cluster_downloader"
+certDir = "/path to your letsencrypt certificate dir"
+dataDir = "/path to the directory holding the download files"
+
+[pg]
+database = "db4s_stats"
+num_connections = 45
+password = "yourpassword"
+port = 5432
+server = "127.0.0.1"
+ssl = true
+username = "youruser"
+
+[server]
+port = 443
