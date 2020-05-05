@@ -404,7 +404,13 @@ func main() {
 
 	http.HandleFunc("/", handler)
 	fmt.Printf("Listening on port %d...\n", Conf.Server.Port)
-	err = http.ListenAndServeTLS(fmt.Sprintf(":%d", Conf.Server.Port), filepath.Join(Conf.Paths.CertDir, "fullchain.pem"), filepath.Join(Conf.Paths.CertDir, "privkey.pem"), nil)
+	srv := &http.Server{
+		Addr: fmt.Sprintf(":%d", Conf.Server.Port),
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12, // TLS 1.2 is now the lowest acceptable level
+		},
+	}
+	err = srv.ListenAndServeTLS(filepath.Join(Conf.Paths.CertDir, "fullchain.pem"), filepath.Join(Conf.Paths.CertDir, "privkey.pem"))
 	if err != nil {
 		log.Fatal(err)
 	}
