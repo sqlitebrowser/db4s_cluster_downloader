@@ -78,7 +78,8 @@ type PGInfo struct {
 	Username       string
 }
 type ServerInfo struct {
-	Port int
+	Debug bool
+	Port  int
 }
 
 // dbEntry is used for storing the new database entries
@@ -102,6 +103,9 @@ type cacheEntry struct {
 var (
 	// Application config
 	Conf TomlConfig
+
+	// Should debugging info be displayed?
+	debug = false
 
 	// PostgreSQL Connection pool
 	pg *pgx.ConnPool
@@ -268,6 +272,9 @@ func main() {
 	if _, err = toml.DecodeFile(configFile, &Conf); err != nil {
 		log.Fatal(err)
 	}
+
+	// Enable debugging output, if the option is set in the config file
+	debug = Conf.Server.Debug
 
 	// Set up initial Jaeger service and span
 	var closer io.Closer
@@ -450,6 +457,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
+		if debug {
+			log.Printf("Successful favicon.ico request, Client: %s\n", r.RemoteAddr)
+		}
 	case "/currentrelease":
 		span.SetTag("Request", "currentrelease")
 		bytesSent, err := fmt.Fprint(w, "3.11.2\nhttps://sqlitebrowser.org/blog/version-3-11-2-released\n")
@@ -461,6 +471,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		err = logRequest(ctx, r, int64(bytesSent), http.StatusOK)
 		if err != nil {
 			log.Printf("Error: %s", err)
+		}
+		if debug {
+			log.Printf("Successful /currentrelease request, Client: %s\n", r.RemoteAddr)
 		}
 	case "/DB.Browser.for.SQLite-3.10.1-win64.exe":
 		span.SetTag("Request", "DB.Browser.for.SQLite-3.10.1-win64.exe")
@@ -836,6 +849,9 @@ func serveDownload(ctx context.Context, w http.ResponseWriter, r *http.Request, 
 		err = logRequest(newCtx, r, bytesSent, http.StatusOK)
 		if err != nil {
 			log.Printf("Error: %s", err)
+		}
+		if debug {
+			log.Printf("Successful download: %s, Client: %s\n", fileName, r.RemoteAddr)
 		}
 	} else {
 		// Warn the user
