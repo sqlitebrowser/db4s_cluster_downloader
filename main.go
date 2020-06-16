@@ -2,11 +2,9 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"fmt"
 	"html/template"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -22,9 +20,6 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/pgtype"
 	"github.com/mitchellh/go-homedir"
-	"github.com/opentracing/opentracing-go"
-	"github.com/uber/jaeger-client-go"
-	"github.com/uber/jaeger-client-go/config"
 )
 
 const (
@@ -59,14 +54,9 @@ const (
 
 // Configuration file
 type TomlConfig struct {
-	Jaeger JaegerInfo
 	Paths  PathInfo
 	Pg     PGInfo
 	Server ServerInfo
-}
-type JaegerInfo struct {
-	CollectorEndPoint string
-	Enable            bool // Should Jaeger be used?
 }
 type PathInfo struct {
 	BaseDir string // Location of the git source
@@ -282,11 +272,7 @@ var (
 				url.QueryEscape("DB.Browser.for.SQLite-3.12.0.dmg"),
 				time.Date(2020, time.June, 14, 7, 24, 20, 0, time.UTC).Format(time.RFC3339)),
 		},
-
-
-
 	}
-	tracer opentracing.Tracer
 	tmpl   *template.Template
 
 	// Is the PostgreSQL connection working?
@@ -315,16 +301,9 @@ func main() {
 	// Enable debugging output, if the option is set in the config file
 	debug = Conf.Server.Debug
 
-	// Set up initial Jaeger service and span
-	var closer io.Closer
-	tracer, closer = initJaeger("db4s_cluster_downloader")
-	defer closer.Close()
-	opentracing.SetGlobalTracer(tracer)
-
 	// * Connect to PG database *
 
 	// Setup the PostgreSQL config
-	pgSpan := tracer.StartSpan("connect postgres")
 	pgConfig := new(pgx.ConnConfig)
 	pgConfig.Host = Conf.Pg.Server
 	pgConfig.Port = uint16(Conf.Pg.Port)
@@ -348,124 +327,120 @@ func main() {
 		// Log successful connection
 		log.Printf("Connected to PostgreSQL server: %v:%v\n", Conf.Pg.Server, uint16(Conf.Pg.Port))
 	}
-	pgSpan.Finish()
 
 	// Load our HTML template
 	// TODO: Embed the template in the compiled binary
 	tmpl = template.Must(template.New("downloads").ParseFiles(filepath.Join(Conf.Paths.BaseDir, "template.html"))).Lookup("downloads")
 
 	// Load the files into ram from the data directory
-	cacheSpan := tracer.StartSpan("create cache entries")
-	ctx := opentracing.ContextWithSpan(context.Background(), cacheSpan)
 	ramCache[DB4S_3_10_1_WIN32].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win32.exe"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_WIN32])
+		cache(ramCache[DB4S_3_10_1_WIN32])
 	}
 	ramCache[DB4S_3_10_1_WIN64].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1-win64.exe"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_WIN64])
+		cache(ramCache[DB4S_3_10_1_WIN64])
 	}
 	ramCache[DB4S_3_10_1_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.10.1.dmg"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_OSX])
+		cache(ramCache[DB4S_3_10_1_OSX])
 	}
 	ramCache[DB4S_3_10_1_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_10_1_PORTABLE])
+		cache(ramCache[DB4S_3_10_1_PORTABLE])
 	}
 	ramCache[DB4S_3_11_0_WIN32_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win32.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_0_WIN32_MSI])
+		cache(ramCache[DB4S_3_11_0_WIN32_MSI])
 	}
 	ramCache[DB4S_3_11_0_WIN32_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win32.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_0_WIN32_ZIP])
+		cache(ramCache[DB4S_3_11_0_WIN32_ZIP])
 	}
 	ramCache[DB4S_3_11_0_WIN64_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win64.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_0_WIN64_MSI])
+		cache(ramCache[DB4S_3_11_0_WIN64_MSI])
 	}
 	ramCache[DB4S_3_11_0_WIN64_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0-win64.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_0_WIN64_ZIP])
+		cache(ramCache[DB4S_3_11_0_WIN64_ZIP])
 	}
 	ramCache[DB4S_3_11_0_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.0.dmg"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_0_OSX])
+		cache(ramCache[DB4S_3_11_0_OSX])
 	}
 	ramCache[DB4S_3_11_1_WIN32_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.1-win32.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_1_WIN32_MSI])
+		cache(ramCache[DB4S_3_11_1_WIN32_MSI])
 	}
 	ramCache[DB4S_3_11_1_WIN32_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.1-win32.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_1_WIN32_ZIP])
+		cache(ramCache[DB4S_3_11_1_WIN32_ZIP])
 	}
 	ramCache[DB4S_3_11_1_WIN64_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.1-win64.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_1_WIN64_MSI])
+		cache(ramCache[DB4S_3_11_1_WIN64_MSI])
 	}
 	ramCache[DB4S_3_11_1_WIN64_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.1-win64.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_1_WIN64_ZIP])
+		cache(ramCache[DB4S_3_11_1_WIN64_ZIP])
 	}
 	ramCache[DB4S_3_11_1_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.1.dmg"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_1_OSX])
+		cache(ramCache[DB4S_3_11_1_OSX])
 	}
 	ramCache[DB4S_3_11_1V2_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.1v2.dmg"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_1V2_OSX])
+		cache(ramCache[DB4S_3_11_1V2_OSX])
 	}
 	ramCache[DB4S_3_11_2_WIN32_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.2-win32.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_2_WIN32_MSI])
+		cache(ramCache[DB4S_3_11_2_WIN32_MSI])
 	}
 	ramCache[DB4S_3_11_2_WIN32_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.2-win32.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_2_WIN32_ZIP])
+		cache(ramCache[DB4S_3_11_2_WIN32_ZIP])
 	}
 	ramCache[DB4S_3_11_2_WIN64_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.2-win64.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_2_WIN64_MSI])
+		cache(ramCache[DB4S_3_11_2_WIN64_MSI])
 	}
 	ramCache[DB4S_3_11_2_WIN64_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.2-win64.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_2_WIN64_ZIP])
+		cache(ramCache[DB4S_3_11_2_WIN64_ZIP])
 	}
 	ramCache[DB4S_3_11_2_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.11.2.dmg"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_2_OSX])
+		cache(ramCache[DB4S_3_11_2_OSX])
 	}
 	ramCache[DB4S_3_11_2_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.11.2_English.paf.exe"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_2_PORTABLE])
+		cache(ramCache[DB4S_3_11_2_PORTABLE])
 	}
 	ramCache[DB4S_3_11_2_PORTABLE_V2].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.11.2_Rev_2_English.paf.exe"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_11_2_PORTABLE_V2])
+		cache(ramCache[DB4S_3_11_2_PORTABLE_V2])
 	}
 	ramCache[DB4S_3_12_0_WIN32_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.0-win32.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_12_0_WIN32_MSI])
+		cache(ramCache[DB4S_3_12_0_WIN32_MSI])
 	}
 	ramCache[DB4S_3_12_0_WIN32_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.0-win32.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_12_0_WIN32_ZIP])
+		cache(ramCache[DB4S_3_12_0_WIN32_ZIP])
 	}
 	ramCache[DB4S_3_12_0_WIN64_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.0-win64.msi"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_12_0_WIN64_MSI])
+		cache(ramCache[DB4S_3_12_0_WIN64_MSI])
 	}
 	ramCache[DB4S_3_12_0_WIN64_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.0-win64.zip"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_12_0_WIN64_ZIP])
+		cache(ramCache[DB4S_3_12_0_WIN64_ZIP])
 	}
 	ramCache[DB4S_3_12_0_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.0.dmg"))
 	if err == nil {
-		cache(ctx, ramCache[DB4S_3_12_0_OSX])
+		cache(ramCache[DB4S_3_12_0_OSX])
 	}
-	cacheSpan.Finish()
 
 	http.HandleFunc("/", handler)
 	fmt.Printf("Listening on port %d...\n", Conf.Server.Port)
@@ -487,11 +462,7 @@ func main() {
 }
 
 // Populates a cache entry
-func cache(ctx context.Context, cacheEntry cacheEntry) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "populate cache entry")
-	defer span.Finish()
-	span.SetTag("Entry", cacheEntry.disposition)
-
+func cache(cacheEntry cacheEntry) {
 	cacheEntry.reader = bytes.NewReader(cacheEntry.mem)
 	cacheEntry.size = fmt.Sprintf("%d", len(cacheEntry.mem))
 	cacheEntry.ready = true
@@ -499,19 +470,14 @@ func cache(ctx context.Context, cacheEntry cacheEntry) {
 
 // Handler for download requests
 func handler(w http.ResponseWriter, r *http.Request) {
-	span := tracer.StartSpan("page handler")
-	defer span.Finish()
-	ctx := opentracing.ContextWithSpan(context.Background(), span)
-
 	// Set the maximum accepted http request size, for safety
 	r.Body = http.MaxBytesReader(w, r.Body, 4096) // 4k seems like a reasonable max size
 
 	var err error
 	switch r.URL.Path {
 	case "/favicon.ico":
-		span.SetTag("Request", "favicon.ico")
 		http.ServeFile(w, r, filepath.Join(Conf.Paths.BaseDir, "favicon.ico"))
-		err = logRequest(ctx, r, 90022, http.StatusOK) // 90022 is the file size of favicon.ico in bytes
+		err = logRequest(r, 90022, http.StatusOK) // 90022 is the file size of favicon.ico in bytes
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
@@ -519,14 +485,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Successful favicon.ico request, Client: %s\n", r.RemoteAddr)
 		}
 	case "/currentrelease":
-		span.SetTag("Request", "currentrelease")
 		bytesSent, err := fmt.Fprint(w, "3.11.2\nhttps://sqlitebrowser.org/blog/version-3-11-2-released\n")
 		if err != nil {
 			log.Printf("Error serving currentrelease: %v\n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = logRequest(ctx, r, int64(bytesSent), http.StatusOK)
+		err = logRequest(r, int64(bytesSent), http.StatusOK)
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
@@ -534,88 +499,60 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Successful /currentrelease request, Client: %s\n", r.RemoteAddr)
 		}
 	case "/DB.Browser.for.SQLite-3.10.1-win64.exe":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.10.1-win64.exe")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_WIN64], "DB.Browser.for.SQLite-3.10.1-win64.exe")
+		serveDownload(w, r, ramCache[DB4S_3_10_1_WIN64], "DB.Browser.for.SQLite-3.10.1-win64.exe")
 	case "/DB.Browser.for.SQLite-3.10.1-win32.exe":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.10.1-win32.exe")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_WIN32], "DB.Browser.for.SQLite-3.10.1-win32.exe")
+		serveDownload(w, r, ramCache[DB4S_3_10_1_WIN32], "DB.Browser.for.SQLite-3.10.1-win32.exe")
 	case "/DB.Browser.for.SQLite-3.10.1.dmg":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.10.1.dmg")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_OSX], "DB.Browser.for.SQLite-3.10.1.dmg")
+		serveDownload(w, r, ramCache[DB4S_3_10_1_OSX], "DB.Browser.for.SQLite-3.10.1.dmg")
 	case "/SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe":
-		span.SetTag("Request", "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_10_1_PORTABLE], "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
+		serveDownload(w, r, ramCache[DB4S_3_10_1_PORTABLE], "SQLiteDatabaseBrowserPortable_3.10.1_English.paf.exe")
 	case "/DB.Browser.for.SQLite-3.11.0-win32.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win32.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN32_MSI], "DB.Browser.for.SQLite-3.11.0-win32.msi")
+		serveDownload(w, r, ramCache[DB4S_3_11_0_WIN32_MSI], "DB.Browser.for.SQLite-3.11.0-win32.msi")
 	case "/DB.Browser.for.SQLite-3.11.0-win32.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win32.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN32_ZIP], "DB.Browser.for.SQLite-3.11.0-win32.zip")
+		serveDownload(w, r, ramCache[DB4S_3_11_0_WIN32_ZIP], "DB.Browser.for.SQLite-3.11.0-win32.zip")
 	case "/DB.Browser.for.SQLite-3.11.0-win64.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win64.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN64_MSI], "DB.Browser.for.SQLite-3.11.0-win64.msi")
+		serveDownload(w, r, ramCache[DB4S_3_11_0_WIN64_MSI], "DB.Browser.for.SQLite-3.11.0-win64.msi")
 	case "/DB.Browser.for.SQLite-3.11.0-win64.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0-win64.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_WIN64_ZIP], "DB.Browser.for.SQLite-3.11.0-win64.zip")
+		serveDownload(w, r, ramCache[DB4S_3_11_0_WIN64_ZIP], "DB.Browser.for.SQLite-3.11.0-win64.zip")
 	case "/DB.Browser.for.SQLite-3.11.0.dmg":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.0.dmg")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_0_OSX], "DB.Browser.for.SQLite-3.11.0.dmg")
+		serveDownload(w, r, ramCache[DB4S_3_11_0_OSX], "DB.Browser.for.SQLite-3.11.0.dmg")
 	case "/DB.Browser.for.SQLite-3.11.1-win32.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1-win32.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1_WIN32_MSI], "DB.Browser.for.SQLite-3.11.1-win32.msi")
+		serveDownload(w, r, ramCache[DB4S_3_11_1_WIN32_MSI], "DB.Browser.for.SQLite-3.11.1-win32.msi")
 	case "/DB.Browser.for.SQLite-3.11.1-win32.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1-win32.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1_WIN32_ZIP], "DB.Browser.for.SQLite-3.11.1-win32.zip")
+		serveDownload(w, r, ramCache[DB4S_3_11_1_WIN32_ZIP], "DB.Browser.for.SQLite-3.11.1-win32.zip")
 	case "/DB.Browser.for.SQLite-3.11.1-win64.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1-win64.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1_WIN64_MSI], "DB.Browser.for.SQLite-3.11.1-win64.msi")
+		serveDownload(w, r, ramCache[DB4S_3_11_1_WIN64_MSI], "DB.Browser.for.SQLite-3.11.1-win64.msi")
 	case "/DB.Browser.for.SQLite-3.11.1-win64.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1-win64.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1_WIN64_ZIP], "DB.Browser.for.SQLite-3.11.1-win64.zip")
+		serveDownload(w, r, ramCache[DB4S_3_11_1_WIN64_ZIP], "DB.Browser.for.SQLite-3.11.1-win64.zip")
 	case "/DB.Browser.for.SQLite-3.11.1.dmg":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1.dmg")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1_OSX], "DB.Browser.for.SQLite-3.11.1.dmg")
+		serveDownload(w, r, ramCache[DB4S_3_11_1_OSX], "DB.Browser.for.SQLite-3.11.1.dmg")
 	case "/DB.Browser.for.SQLite-3.11.1v2.dmg":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.1v2.dmg")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_1V2_OSX], "DB.Browser.for.SQLite-3.11.1v2.dmg")
+		serveDownload(w, r, ramCache[DB4S_3_11_1V2_OSX], "DB.Browser.for.SQLite-3.11.1v2.dmg")
 	case "/DB.Browser.for.SQLite-3.11.2-win32.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.2-win32.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_WIN32_MSI], "DB.Browser.for.SQLite-3.11.2-win32.msi")
+		serveDownload(w, r, ramCache[DB4S_3_11_2_WIN32_MSI], "DB.Browser.for.SQLite-3.11.2-win32.msi")
 	case "/DB.Browser.for.SQLite-3.11.2-win32.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.2-win32.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_WIN32_ZIP], "DB.Browser.for.SQLite-3.11.2-win32.zip")
+		serveDownload(w, r, ramCache[DB4S_3_11_2_WIN32_ZIP], "DB.Browser.for.SQLite-3.11.2-win32.zip")
 	case "/DB.Browser.for.SQLite-3.11.2-win64.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.2-win64.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_WIN64_MSI], "DB.Browser.for.SQLite-3.11.2-win64.msi")
+		serveDownload(w, r, ramCache[DB4S_3_11_2_WIN64_MSI], "DB.Browser.for.SQLite-3.11.2-win64.msi")
 	case "/DB.Browser.for.SQLite-3.11.2-win64.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.2-win64.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_WIN64_ZIP], "DB.Browser.for.SQLite-3.11.2-win64.zip")
+		serveDownload(w, r, ramCache[DB4S_3_11_2_WIN64_ZIP], "DB.Browser.for.SQLite-3.11.2-win64.zip")
 	case "/DB.Browser.for.SQLite-3.11.2.dmg":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.11.2.dmg")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_OSX], "DB.Browser.for.SQLite-3.11.2.dmg")
+		serveDownload(w, r, ramCache[DB4S_3_11_2_OSX], "DB.Browser.for.SQLite-3.11.2.dmg")
 	case "/SQLiteDatabaseBrowserPortable_3.11.2_English.paf.exe":
-		span.SetTag("Request", "SQLiteDatabaseBrowserPortable_3.11.2_English.paf.exe")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_PORTABLE], "SQLiteDatabaseBrowserPortable_3.11.2_English.paf.exe")
+		serveDownload(w, r, ramCache[DB4S_3_11_2_PORTABLE], "SQLiteDatabaseBrowserPortable_3.11.2_English.paf.exe")
 	case "/SQLiteDatabaseBrowserPortable_3.11.2_Rev_2_English.paf.exe":
-		span.SetTag("Request", "SQLiteDatabaseBrowserPortable_3.11.2_Rev_2_English.paf.exe")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_11_2_PORTABLE_V2], "SQLiteDatabaseBrowserPortable_3.11.2_Rev_2_English.paf.exe")
+		serveDownload(w, r, ramCache[DB4S_3_11_2_PORTABLE_V2], "SQLiteDatabaseBrowserPortable_3.11.2_Rev_2_English.paf.exe")
 	case "/DB.Browser.for.SQLite-3.12.0-win32.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.12.0-win32.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_12_0_WIN32_MSI], "DB.Browser.for.SQLite-3.12.0-win32.msi")
+		serveDownload(w, r, ramCache[DB4S_3_12_0_WIN32_MSI], "DB.Browser.for.SQLite-3.12.0-win32.msi")
 	case "/DB.Browser.for.SQLite-3.12.0-win32.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.12.0-win32.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_12_0_WIN32_ZIP], "DB.Browser.for.SQLite-3.12.0-win32.zip")
+		serveDownload(w, r, ramCache[DB4S_3_12_0_WIN32_ZIP], "DB.Browser.for.SQLite-3.12.0-win32.zip")
 	case "/DB.Browser.for.SQLite-3.12.0-win64.msi":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.12.0-win64.msi")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_12_0_WIN64_MSI], "DB.Browser.for.SQLite-3.12.0-win64.msi")
+		serveDownload(w, r, ramCache[DB4S_3_12_0_WIN64_MSI], "DB.Browser.for.SQLite-3.12.0-win64.msi")
 	case "/DB.Browser.for.SQLite-3.12.0-win64.zip":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.12.0-win64.zip")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_12_0_WIN64_ZIP], "DB.Browser.for.SQLite-3.12.0-win64.zip")
+		serveDownload(w, r, ramCache[DB4S_3_12_0_WIN64_ZIP], "DB.Browser.for.SQLite-3.12.0-win64.zip")
 	case "/DB.Browser.for.SQLite-3.12.0.dmg":
-		span.SetTag("Request", "DB.Browser.for.SQLite-3.12.0.dmg")
-		serveDownload(ctx, w, r, ramCache[DB4S_3_12_0_OSX], "DB.Browser.for.SQLite-3.12.0.dmg")
+		serveDownload(w, r, ramCache[DB4S_3_12_0_OSX], "DB.Browser.for.SQLite-3.12.0.dmg")
 	default:
-		span.SetTag("Request", "index page")
 
 		// Send the index page listing
 		err = tmpl.Execute(w, nil)
@@ -624,42 +561,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error: %s", e)
 			log.Printf("Error: %s", err)
 		}
-		err = logRequest(ctx, r, 3403, http.StatusOK) // The index page is 3403 bytes in length
+		err = logRequest(r, 3403, http.StatusOK) // The index page is 3403 bytes in length
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
 	}
 }
 
-// initJaeger returns an instance of Jaeger Tracer
-func initJaeger(service string) (opentracing.Tracer, io.Closer) {
-	samplerConst := 1.0
-	if !Conf.Jaeger.Enable {
-		samplerConst = 0.0
-	}
-	cfg := &config.Configuration{
-		ServiceName: service,
-		Sampler: &config.SamplerConfig{
-			Type:  "const",
-			Param: samplerConst,
-		},
-		Reporter: &config.ReporterConfig{
-			CollectorEndpoint: Conf.Jaeger.CollectorEndPoint,
-		},
-	}
-	tracer, closer, err := cfg.NewTracer(config.Logger(jaeger.StdLogger))
-	if err != nil {
-		panic(fmt.Sprintf("ERROR: cannot init Jaeger: %v\n", err))
-	}
-	return tracer, closer
-}
-
-func logRequest(ctx context.Context, r *http.Request, bytesSent int64, status int) (err error) {
+func logRequest(r *http.Request, bytesSent int64, status int) (err error) {
 	// Only log the download if the PostgreSQL connection is present
 	if usePG {
-		span, _ := opentracing.StartSpanFromContext(ctx, "log request")
-		defer span.Finish()
-
 		// Use the new v3 pgx/pgtype structures
 		ref := &pgtype.Text{
 			String: r.Referer(),
@@ -883,11 +794,7 @@ func logRequest(ctx context.Context, r *http.Request, bytesSent int64, status in
 }
 
 // Serves downloads from cache
-func serveDownload(ctx context.Context, w http.ResponseWriter, r *http.Request, download cacheEntry, fileName string) {
-	span, newCtx := opentracing.StartSpanFromContext(ctx, "serve download")
-	defer span.Finish()
-	span.SetTag("Request", fileName)
-
+func serveDownload(w http.ResponseWriter, r *http.Request, download cacheEntry, fileName string) {
 	// If the file isn't cached, check if it's ready to be cached yet
 	var err error
 	if !download.ready {
@@ -913,13 +820,13 @@ func serveDownload(ctx context.Context, w http.ResponseWriter, r *http.Request, 
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			// TODO: Catch when an error occurs (eg client aborts download), and log that too.  Probably need extra
 			//       fields added to the database for holding the info.
-			err = logRequest(newCtx, r, bytesSent, http.StatusBadRequest)
+			err = logRequest(r, bytesSent, http.StatusBadRequest)
 			if err != nil {
 				log.Printf("Error: %s", err)
 			}
 			return
 		}
-		err = logRequest(newCtx, r, bytesSent, http.StatusOK)
+		err = logRequest(r, bytesSent, http.StatusOK)
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
@@ -932,7 +839,7 @@ func serveDownload(ctx context.Context, w http.ResponseWriter, r *http.Request, 
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
-		err = logRequest(newCtx, r, 17, http.StatusNotFound)
+		err = logRequest(r, 17, http.StatusNotFound)
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
