@@ -485,7 +485,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Successful favicon.ico request, Client: %s\n", r.RemoteAddr)
 		}
 	case "/currentrelease":
-		bytesSent, err := fmt.Fprint(w, "3.11.2\nhttps://sqlitebrowser.org/blog/version-3-11-2-released\n")
+		bytesSent, err := fmt.Fprint(w, "3.12.0\nhttps://sqlitebrowser.org/blog/version-3-12-0-released\n")
 		if err != nil {
 			log.Printf("Error serving currentrelease: %v\n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
