@@ -50,6 +50,7 @@ const (
 	DB4S_3_12_0_WIN64_MSI
 	DB4S_3_12_0_WIN64_ZIP
 	DB4S_3_12_0_OSX
+	DB4S_3_12_0_PORTABLE
 )
 
 // Configuration file
@@ -106,7 +107,7 @@ var (
 	pg *pgx.ConnPool
 
 	// Cached downloads
-	ramCache = [27]cacheEntry{
+	ramCache = [28]cacheEntry{
 		// These hard coded last modified timestamps are because we're working with existing files, so we provide the
 		// same ones already being used
 		{ // DB4S 3.10.1 Win32
@@ -271,6 +272,12 @@ var (
 			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
 				url.QueryEscape("DB.Browser.for.SQLite-3.12.0.dmg"),
 				time.Date(2020, time.June, 14, 7, 24, 20, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.12.0 Portable
+			lastRFC1123: time.Date(2020, time.June, 18, 4, 59, 35, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe"),
+				time.Date(2020, time.June, 18, 4, 59, 35, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
 	tmpl   *template.Template
@@ -441,6 +448,10 @@ func main() {
 	if err == nil {
 		cache(ramCache[DB4S_3_12_0_OSX])
 	}
+	ramCache[DB4S_3_12_0_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_0_PORTABLE])
+	}
 
 	http.HandleFunc("/", handler)
 	fmt.Printf("Listening on port %d...\n", Conf.Server.Port)
@@ -552,6 +563,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		serveDownload(w, r, ramCache[DB4S_3_12_0_WIN64_ZIP], "DB.Browser.for.SQLite-3.12.0-win64.zip")
 	case "/DB.Browser.for.SQLite-3.12.0.dmg":
 		serveDownload(w, r, ramCache[DB4S_3_12_0_OSX], "DB.Browser.for.SQLite-3.12.0.dmg")
+	case "/SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe":
+		serveDownload(w, r, ramCache[DB4S_3_12_0_PORTABLE], "SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe")
 	default:
 
 		// Send the index page listing
