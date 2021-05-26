@@ -51,6 +51,12 @@ const (
 	DB4S_3_12_0_WIN64_ZIP
 	DB4S_3_12_0_OSX
 	DB4S_3_12_0_PORTABLE
+	DB4S_3_12_2_WIN32_MSI
+	DB4S_3_12_2_WIN32_ZIP
+	DB4S_3_12_2_WIN64_MSI
+	DB4S_3_12_2_WIN64_ZIP
+	DB4S_3_12_2_OSX
+	DB4S_3_12_2_PORTABLE
 )
 
 // Configuration file
@@ -107,7 +113,7 @@ var (
 	pg *pgx.ConnPool
 
 	// Cached downloads
-	ramCache = [28]cacheEntry{
+	ramCache = [34]cacheEntry{
 		// These hard coded last modified timestamps are because we're working with existing files, so we provide the
 		// same ones already being used
 		{ // DB4S 3.10.1 Win32
@@ -243,6 +249,7 @@ var (
 				time.Date(2019, time.May, 14, 22, 59, 52, 0, time.UTC).Format(time.RFC3339)),
 		},
 
+		// *** 3.12.0 release ***
 		{ // DB4S 3.12.0 Win32 MSI
 			lastRFC1123: time.Date(2020, time.June, 15, 18, 18, 1, 0, time.UTC).Format(time.RFC1123),
 			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
@@ -278,6 +285,44 @@ var (
 			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
 				url.QueryEscape("SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe"),
 				time.Date(2020, time.June, 18, 4, 59, 35, 0, time.UTC).Format(time.RFC3339)),
+		},
+
+		// *** 3.12.2 release ***
+		{ // DB4S 3.12.2 Win32 MSI
+			lastRFC1123: time.Date(2021, time.May, 17, 12, 39, 2, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.12.2-win32.msi"),
+				time.Date(2021, time.May, 17, 12, 39, 2, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.12.2 Win32 zip
+			lastRFC1123: time.Date(2021, time.May, 16, 20, 0, 6, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.12.2-win32.zip"),
+				time.Date(2021, time.May, 16, 20, 0, 6, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.12.2 Win64 MSI
+			lastRFC1123: time.Date(2021, time.May, 17, 12, 39, 16, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.12.2-win64.msi"),
+				time.Date(2021, time.May, 17, 12, 39, 16, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.12.2 Win64 zip
+			lastRFC1123: time.Date(2021, time.May, 16, 20, 0, 21, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.12.2-win64.zip"),
+				time.Date(2021, time.May, 16, 20, 0, 21, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.12.2 OSX
+			lastRFC1123: time.Date(2021, time.May, 9, 11, 14, 6, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB.Browser.for.SQLite-3.12.2.dmg"),
+				time.Date(2021, time.May, 9, 11, 14, 6, 0, time.UTC).Format(time.RFC3339)),
+		},
+		{ // DB4S 3.12.2 Portable
+			lastRFC1123: time.Date(2021, time.May, 19, 16, 42, 57, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe"),
+				time.Date(2021, time.May, 19, 16, 42, 57, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
 	tmpl *template.Template
@@ -565,6 +610,20 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		serveDownload(w, r, ramCache[DB4S_3_12_0_OSX], "DB.Browser.for.SQLite-3.12.0.dmg")
 	case "/SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe":
 		serveDownload(w, r, ramCache[DB4S_3_12_0_PORTABLE], "SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe")
+
+	// 3.12.2 release
+	case "/DB.Browser.for.SQLite-3.12.2-win32.msi":
+		serveDownload(w, r, ramCache[DB4S_3_12_2_WIN32_MSI], "DB.Browser.for.SQLite-3.12.2-win32.msi")
+	case "/DB.Browser.for.SQLite-3.12.2-win32.zip":
+		serveDownload(w, r, ramCache[DB4S_3_12_2_WIN32_ZIP], "DB.Browser.for.SQLite-3.12.2-win32.zip")
+	case "/DB.Browser.for.SQLite-3.12.2-win64.msi":
+		serveDownload(w, r, ramCache[DB4S_3_12_2_WIN64_MSI], "DB.Browser.for.SQLite-3.12.2-win64.msi")
+	case "/DB.Browser.for.SQLite-3.12.2-win64.zip":
+		serveDownload(w, r, ramCache[DB4S_3_12_2_WIN64_ZIP], "DB.Browser.for.SQLite-3.12.2-win64.zip")
+	case "/DB.Browser.for.SQLite-3.12.2.dmg":
+		serveDownload(w, r, ramCache[DB4S_3_12_2_OSX], "DB.Browser.for.SQLite-3.12.2.dmg")
+	case "/SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe":
+		serveDownload(w, r, ramCache[DB4S_3_12_2_PORTABLE], "SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe")
 	default:
 
 		// Send the index page listing
