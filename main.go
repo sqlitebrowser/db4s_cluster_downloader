@@ -280,7 +280,7 @@ var (
 				time.Date(2020, time.June, 18, 4, 59, 35, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
-	tmpl   *template.Template
+	tmpl *template.Template
 
 	// Is the PostgreSQL connection working?
 	usePG = true
@@ -496,7 +496,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Successful favicon.ico request, Client: %s\n", r.RemoteAddr)
 		}
 	case "/currentrelease":
-		bytesSent, err := fmt.Fprint(w, "3.12.0\nhttps://sqlitebrowser.org/blog/version-3-12-0-released\n")
+		bytesSent, err := fmt.Fprint(w, "3.12.2\nhttps://sqlitebrowser.org/blog/version-3-12-2-released\n")
 		if err != nil {
 			log.Printf("Error serving currentrelease: %v\n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
