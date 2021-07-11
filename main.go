@@ -57,6 +57,7 @@ const (
 	DB4S_3_12_2_WIN64_ZIP
 	DB4S_3_12_2_OSX
 	DB4S_3_12_2_PORTABLE
+	DB4S_3_12_2_APPIMAGE
 )
 
 // Configuration file
@@ -113,7 +114,7 @@ var (
 	pg *pgx.ConnPool
 
 	// Cached downloads
-	ramCache = [34]cacheEntry{
+	ramCache = [35]cacheEntry{
 		// These hard coded last modified timestamps are because we're working with existing files, so we provide the
 		// same ones already being used
 		{ // DB4S 3.10.1 Win32
@@ -324,6 +325,12 @@ var (
 				url.QueryEscape("SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe"),
 				time.Date(2021, time.May, 19, 16, 42, 57, 0, time.UTC).Format(time.RFC3339)),
 		},
+		{ // DB4S 3.12.2 AppImage
+			lastRFC1123: time.Date(2021, time.July, 7, 6, 55, 29, 0, time.UTC).Format(time.RFC1123),
+			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
+				url.QueryEscape("DB_Browser_for_SQLite-v3.12.2-x86_64.AppImage"),
+				time.Date(2021, time.July, 7, 6, 55, 29, 0, time.UTC).Format(time.RFC3339)),
+		},
 	}
 	tmpl *template.Template
 
@@ -473,6 +480,8 @@ func main() {
 	if err == nil {
 		cache(ramCache[DB4S_3_11_2_PORTABLE_V2])
 	}
+
+	// 3.12.0 release
 	ramCache[DB4S_3_12_0_WIN32_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.0-win32.msi"))
 	if err == nil {
 		cache(ramCache[DB4S_3_12_0_WIN32_MSI])
@@ -496,6 +505,36 @@ func main() {
 	ramCache[DB4S_3_12_0_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.12.0_English.paf.exe"))
 	if err == nil {
 		cache(ramCache[DB4S_3_12_0_PORTABLE])
+	}
+
+	// 3.12.2 release
+	ramCache[DB4S_3_12_2_WIN32_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.2-win32.msi"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_2_WIN32_MSI])
+	}
+	ramCache[DB4S_3_12_2_WIN32_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.2-win32.zip"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_2_WIN32_ZIP])
+	}
+	ramCache[DB4S_3_12_2_WIN64_MSI].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.2-win64.msi"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_2_WIN64_MSI])
+	}
+	ramCache[DB4S_3_12_2_WIN64_ZIP].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.2-win64.zip"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_2_WIN64_ZIP])
+	}
+	ramCache[DB4S_3_12_2_OSX].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB.Browser.for.SQLite-3.12.2.dmg"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_2_OSX])
+	}
+	ramCache[DB4S_3_12_2_PORTABLE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_2_PORTABLE])
+	}
+	ramCache[DB4S_3_12_2_APPIMAGE].mem, err = ioutil.ReadFile(filepath.Join(Conf.Paths.DataDir, "DB_Browser_for_SQLite-v3.12.2-x86_64.AppImage"))
+	if err == nil {
+		cache(ramCache[DB4S_3_12_2_APPIMAGE])
 	}
 
 	http.HandleFunc("/", handler)
@@ -624,6 +663,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		serveDownload(w, r, ramCache[DB4S_3_12_2_OSX], "DB.Browser.for.SQLite-3.12.2.dmg")
 	case "/SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe":
 		serveDownload(w, r, ramCache[DB4S_3_12_2_PORTABLE], "SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe")
+	case "/DB_Browser_for_SQLite-v3.12.2-x86_64.AppImage":
+		serveDownload(w, r, ramCache[DB4S_3_12_2_APPIMAGE], "DB_Browser_for_SQLite-v3.12.2-x86_64.AppImage")
 	default:
 
 		// Send the index page listing
@@ -633,7 +674,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error: %s", e)
 			log.Printf("Error: %s", err)
 		}
-		err = logRequest(r, 3403, http.StatusOK) // The index page is 3403 bytes in length
+		err = logRequest(r, 4478, http.StatusOK) // The index page is 4478 bytes in length
 		if err != nil {
 			log.Printf("Error: %s", err)
 		}
