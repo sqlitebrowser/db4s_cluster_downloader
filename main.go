@@ -335,7 +335,7 @@ var (
 		{ // DB4S 3.12.2 OSX ARM64
 			lastRFC1123: time.Date(2022, time.October, 23, 16, 16, 06, 0, time.UTC).Format(time.RFC1123),
 			disposition: fmt.Sprintf(`attachment; filename="%s"; modification-date="%s";`,
-				url.QueryEscape("DB_Browser_for_SQLite-v3.12.2-x86_64.AppImage"),
+				url.QueryEscape("DB.Browser.for.SQLite-arm64-3.12.2.dmg"),
 				time.Date(2022, time.October, 23, 16, 16, 06, 0, time.UTC).Format(time.RFC3339)),
 		},
 	}
