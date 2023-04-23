@@ -551,7 +551,8 @@ func main() {
 	http.HandleFunc("/", handler)
 	fmt.Printf("Listening on port %d...\n", Conf.Server.Port)
 	srv := &http.Server{
-		Addr: fmt.Sprintf(":%d", Conf.Server.Port),
+		Addr:     fmt.Sprintf(":%d", Conf.Server.Port),
+		ErrorLog: HttpErrorLog(),
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12, // TLS 1.2 is now the lowest acceptable level
 		},
