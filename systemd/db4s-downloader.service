@@ -1,6 +1,6 @@
 [Unit]
-Description=Clustered download server for DB Browser for SQLite
-Documentation=https://github.com/justinclift/db4s_cluster_downloader
+Description=Download server for DB Browser for SQLite
+Documentation=https://github.com/sqlitebrowser/db4s_cluster_downloader
 Wants=network-online.target
 AssertFileIsExecutable=/usr/local/bin/db4s_cluster_downloader
 

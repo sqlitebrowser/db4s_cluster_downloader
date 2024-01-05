@@ -26,7 +26,7 @@ func (*FilteringErrorLogWriter) Write(msg []byte) (int, error) {
 	return len(msg), nil
 }
 
-// Filter out the copious 'TLS handshake error' messages we're getting
+// HttpErrorLog filters out the copious 'TLS handshake error' messages we're getting
 func HttpErrorLog() *log.Logger {
 	httpErrorLogger = log.New(&FilteringErrorLogWriter{}, "", log.LstdFlags)
 	return httpErrorLogger
