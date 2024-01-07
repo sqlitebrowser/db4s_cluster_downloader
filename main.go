@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	sqlite "github.com/gwenn/gosqlite"
@@ -578,10 +577,6 @@ func setupRouter(testingMode bool) (router *gin.Engine, err error) {
 
 	// Add gzip middleware
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
-
-	// Add CORS middleware
-	// The default configuration allows all origins
-	router.Use(cors.Default())
 
 	// Log requests to PostgreSQL
 	router.Use(logRequest())
