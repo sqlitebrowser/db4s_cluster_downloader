@@ -568,8 +568,8 @@ func setupRouter(testingMode bool) (router *gin.Engine, err error) {
 	// Set up Gin
 	router = gin.New()
 	router.Use(gin.Recovery())
-	if !testingMode {
-		// We don't use the Gin Logger middleware when running go test
+	if debug {
+		// We only use the Gin Logger middleware when debugging is turned on
 		router.Use(gin.Logger())
 	}
 
