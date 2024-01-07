@@ -5,6 +5,7 @@ Wants=network-online.target
 AssertFileIsExecutable=/usr/local/bin/db4s_cluster_downloader
 
 [Service]
+Environment="LD_LIBRARY_PATH=/var/lib/db4s/git_repos/db4s_cluster_downloader/local/lib"
 ExecStart=/usr/local/bin/db4s_cluster_downloader
 WorkingDirectory=/usr/local/bin
 User=db4s
