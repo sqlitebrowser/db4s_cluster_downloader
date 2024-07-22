@@ -109,8 +109,8 @@ func main() {
 	s := &http.Server{
 		ErrorLog:     HttpErrorLog(),
 		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 
 	// If TLS Cert and key file paths are given, then we're using TLS
