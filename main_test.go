@@ -30,11 +30,49 @@ var (
 		},
 		"indexpage": {
 			url:          "/",
-			expectedData: "fc3eecda523804459af8a330f62d8e12a8a079150b45bb594b3f073290bac171",
+			expectedData: "489dea956711829f738c7e0b96e9b79dcc40aaf6be06cfb470a18eed57e2348d",
+			expectedType: "sha256",
+		},
+		"SHA256SUMS.txt": {
+			url:          "/SHA256SUMS.txt",
+			expectedData: "47f65adf7012313044cb0dd404aba3484a02d2d04025cc00f5674676f9b27688",
 			expectedType: "sha256",
 		},
 
-		// Downloadable files
+		// DB4S files
+
+		// 3.13.0
+		"DB.Browser.for.SQLite-v3.13.0-win32.msi": {
+			url:          "/DB.Browser.for.SQLite-v3.13.0-win32.msi",
+			expectedData: "81af0e90257b96d4ddac32b93801c160e18ec450c2727d507f80ba3c585279f3",
+			expectedType: "sha256",
+		},
+		"DB.Browser.for.SQLite-v3.13.0-win32.zip": {
+			url:          "/DB.Browser.for.SQLite-v3.13.0-win32.zip",
+			expectedData: "12c688c67acde2e76ff5d5a6c1dada854015f57c6b06c5378231fc357ddea47b",
+			expectedType: "sha256",
+		},
+		"DB.Browser.for.SQLite-v3.13.0-win64.msi": {
+			url:          "/DB.Browser.for.SQLite-v3.13.0-win64.msi",
+			expectedData: "4fd5a308481fa8ff3008bcbd069da03944698f1397b509f22a43bfda93dfccd3",
+			expectedType: "sha256",
+		},
+		"DB.Browser.for.SQLite-v3.13.0-win64.zip": {
+			url:          "/DB.Browser.for.SQLite-v3.13.0-win64.zip",
+			expectedData: "69465171d0eaca2a3d68ec5a5048f62ee192d136412a6f6747538d4535c18bbe",
+			expectedType: "sha256",
+		},
+		"DB.Browser.for.SQLite-v3.13.0-x86.64.AppImage": {
+			url:          "/DB.Browser.for.SQLite-v3.13.0-x86.64.AppImage",
+			expectedData: "58f4e35c7e8344fe1cf8f2431463b40be761c2120381257afbede2ff39fa21bc",
+			expectedType: "sha256",
+		},
+		"DB.Browser.for.SQLite-v3.13.0.dmg": {
+			url:          "/DB.Browser.for.SQLite-v3.13.0.dmg",
+			expectedData: "dfa72811ab9faa522586a31bf680db1604442e35a2725f0aed77d5f66388724b",
+			expectedType: "sha256",
+		},
+
 		"DB.Browser.for.SQLite-3.12.2-win32.msi": {
 			url:          "/DB.Browser.for.SQLite-3.12.2-win32.msi",
 			expectedData: "2b87a0ca1b14f436f2dc2cbfaa380249e754c3c87c81b6648a513f75d3c73368",

@@ -34,8 +34,12 @@ var (
 	// SQLite connection, used as fallback if PostgreSQL isn't available
 	sdb *sqlite.Conn
 
-	// Timestamps for the files.  We use hard coded values that match GitHub
+	// Timestamps for the files.  Up until the 3.13.0 release we use hard coded values that match GitHub, but don't
+	// bother any more as that's probably not important
 	timeStamps = map[string]time.Time{
+		// SHA256 checksums
+		"SHA256SUMS.txt": time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+
 		// *** 3.10.1 release ***
 		"DB.Browser.for.SQLite-3.10.1-win32.exe":               time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC),
 		"DB.Browser.for.SQLite-3.10.1-win64.exe":               time.Date(2017, time.September, 20, 14, 59, 59, 0, time.UTC),
@@ -83,6 +87,14 @@ var (
 		"SQLiteDatabaseBrowserPortable_3.12.2_English.paf.exe": time.Date(2021, time.May, 19, 16, 42, 57, 0, time.UTC),
 		"DB_Browser_for_SQLite-v3.12.2-x86_64.AppImage":        time.Date(2021, time.July, 7, 6, 55, 29, 0, time.UTC),
 		"DB.Browser.for.SQLite-arm64-3.12.2.dmg":               time.Date(2022, time.October, 23, 16, 16, 06, 0, time.UTC),
+
+		// *** 3.13.0 release ***
+		"DB.Browser.for.SQLite-v3.13.0.dmg":             time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.0-win32.msi":       time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.0-win32.zip":       time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.0-win64.msi":       time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.0-win64.zip":       time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.0-x86.64.AppImage": time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
 	}
 
 	// RecordDownloadsLocation controls where downloads are recorded
