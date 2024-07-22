@@ -1,6 +1,6 @@
 package main
 
-import "github.com/jackc/pgx/pgtype"
+import "github.com/jackc/pgx/v5/pgtype"
 
 // TomlConfig is the structure for holding the application configuration
 type TomlConfig struct {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -16,9 +17,8 @@ import (
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	sqlite "github.com/gwenn/gosqlite"
-	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/pgtype"
-	"github.com/mitchellh/go-homedir"
+	"github.com/jackc/pgx/v5/pgtype"
+	pgpool "github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 	debug bool
 
 	// PostgreSQL Connection pool
-	pg *pgx.ConnPool
+	DB *pgpool.Pool
 
 	// SQLite connection, used as fallback if PostgreSQL isn't available
 	sdb *sqlite.Conn
@@ -149,7 +149,7 @@ func main() {
 
 	// Close the database connection gracefully
 	if RecordDownloadsLocation == RECORD_IN_PG {
-		pg.Close()
+		DB.Close()
 	} else if RecordDownloadsLocation == RECORD_IN_SQLITE {
 		sdb.Close()
 	}
@@ -159,23 +159,23 @@ func main() {
 // SQLite database instead.  If *that* fails as well, it just doesn't bother recording downloads.
 func connectDatabase() {
 	// Setup the PostgreSQL config
-	pgConfig := new(pgx.ConnConfig)
-	pgConfig.Host = Conf.Pg.Server
-	pgConfig.Port = uint16(Conf.Pg.Port)
-	pgConfig.User = Conf.Pg.Username
-	pgConfig.Password = Conf.Pg.Password
-	pgConfig.Database = Conf.Pg.Database
-	clientTLSConfig := tls.Config{InsecureSkipVerify: true}
+	pgConfig, err := pgpool.ParseConfig(fmt.Sprintf("host=%s port=%d user= %s password = %s dbname=%s pool_max_conns=%d connect_timeout=10", Conf.Pg.Server, uint16(Conf.Pg.Port), Conf.Pg.Username, Conf.Pg.Password, Conf.Pg.Database, Conf.Pg.NumConnections))
+	if err != nil {
+		return
+	}
+
+	// Enable encrypted connections where needed
+	tlsConfig := tls.Config{}
 	if Conf.Pg.SSL {
-		pgConfig.TLSConfig = &clientTLSConfig
+		tlsConfig.ServerName = Conf.Pg.Server
+		tlsConfig.InsecureSkipVerify = false
+		pgConfig.ConnConfig.TLSConfig = &tlsConfig
 	} else {
-		pgConfig.TLSConfig = nil
+		tlsConfig.InsecureSkipVerify = true
 	}
 
 	// Connect to PG
-	pgPoolConfig := pgx.ConnPoolConfig{*pgConfig, Conf.Pg.NumConnections, nil, 5 * time.Second}
-	var err error
-	pg, err = pgx.NewConnPool(pgPoolConfig)
+	DB, err = pgpool.New(context.Background(), pgConfig.ConnString())
 	if err != nil {
 		fileName := "DB4S_downloads.sqlite"
 		err = connectSQLite(fileName)
@@ -260,21 +260,20 @@ func logRequest() gin.HandlerFunc {
 
 		// If we're recording downloads, then figure out the details
 		if RecordDownloadsLocation != RECORD_NOWHERE {
-			// Use the new v3 pgx/pgtype structures
 			ref := &pgtype.Text{
 				String: c.Request.Referer(),
-				Status: pgtype.Present,
+				Valid:  true,
 			}
 			if c.Request.Referer() == "" {
-				ref.Status = pgtype.Null
+				ref.Valid = false
 			}
 
 			// Grab the client IP address
 			clientIP := dbEntry{
-				ipv4:      pgtype.Text{Status: pgtype.Null},
-				ipv6:      pgtype.Text{Status: pgtype.Null},
-				ipstrange: pgtype.Text{Status: pgtype.Null},
-				port:      pgtype.Int4{Status: pgtype.Null},
+				ipv4:      pgtype.Text{Valid: false},
+				ipv6:      pgtype.Text{Valid: false},
+				ipstrange: pgtype.Text{Valid: false},
+				port:      pgtype.Int4{Valid: false},
 			}
 			tempIP := c.Request.Header.Get("X-Forwarded-For")
 			if tempIP == "" {
@@ -298,7 +297,7 @@ func logRequest() gin.HandlerFunc {
 						// We either have too many, or not enough fields.  Either way, store the IP address in the "strange"
 						// database field for future analysis
 						clientIP.ipstrange.String = ip
-						clientIP.ipstrange.Status = pgtype.Present
+						clientIP.ipstrange.Valid = true
 
 					} else {
 						// * In theory, we should have the port number in [s]1 *
@@ -307,16 +306,16 @@ func logRequest() gin.HandlerFunc {
 						if s[1] != "" {
 							p, e := strconv.ParseInt(s[1], 10, 32)
 							if e == nil {
-								clientIP.port.Status = pgtype.Present
-								clientIP.port.Int = int32(p)
+								clientIP.port.Valid = true
+								clientIP.port.Int32 = int32(p)
 
 								// Double check the port number conversion was correct
-								tst := fmt.Sprintf("%d", clientIP.port.Int)
+								tst := fmt.Sprintf("%d", clientIP.port.Int32)
 								if tst != s[1] {
 									log.Printf("String conversion failed! s[1] = %v, p = %v, int32(p) = %v, port = %v",
-										s[1], p, int32(p), clientIP.port.Int)
-									clientIP.port.Status = pgtype.Null
-									clientIP.port.Int = 0
+										s[1], p, int32(p), clientIP.port.Int32)
+									clientIP.port.Valid = false
+									clientIP.port.Int32 = 0
 								}
 							} else {
 								log.Printf("Conversion error: %v", e)
@@ -330,7 +329,7 @@ func logRequest() gin.HandlerFunc {
 							// for future investigation.
 							log.Printf("Strange address '%v'", tempIP)
 							clientIP.ipstrange.String = tempIP
-							clientIP.ipstrange.Status = pgtype.Present
+							clientIP.ipstrange.Valid = true
 						}
 
 						// Double check the IP address, by seeing if converting it to a string matches what we were given
@@ -339,11 +338,11 @@ func logRequest() gin.HandlerFunc {
 							// future investigation
 							log.Printf("Strange address '%v'", tempIP)
 							clientIP.ipstrange.String = tempIP
-							clientIP.ipstrange.Status = pgtype.Present
+							clientIP.ipstrange.Valid = true
 						}
 
 						clientIP.ipv6.String = ip
-						clientIP.ipv6.Status = pgtype.Present
+						clientIP.ipv6.Valid = true
 					}
 				} else {
 					// Client IP address doesn't seem to be in "[IPv6]:port" format, so it's likely IPv4, or IPv6 without a
@@ -359,13 +358,13 @@ func logRequest() gin.HandlerFunc {
 							// for future investigation.
 							log.Printf("Strange address '%v'", tempIP)
 							clientIP.ipstrange.String = tempIP
-							clientIP.ipstrange.Status = pgtype.Present
+							clientIP.ipstrange.Valid = true
 							break
 						}
 
 						// Yep, it's just a standard IPv4 address missing a port number
 						clientIP.ipv4.String = s[0]
-						clientIP.ipv4.Status = pgtype.Present
+						clientIP.ipv4.Valid = true
 
 					case 2:
 						// Most likely an IPv4 address with a port number.  eg 1.2.3.4:56789
@@ -376,13 +375,13 @@ func logRequest() gin.HandlerFunc {
 							// for future investigation.
 							log.Printf("Strange address '%v'", tempIP)
 							clientIP.ipstrange.String = tempIP
-							clientIP.ipstrange.Status = pgtype.Present
+							clientIP.ipstrange.Valid = true
 							break
 						}
 
 						// The IPv4 address is valid, so record that
 						clientIP.ipv4.String = s[0]
-						clientIP.ipv4.Status = pgtype.Present
+						clientIP.ipv4.Valid = true
 
 						// Validate the port number
 						if s[1] != "" {
@@ -396,7 +395,7 @@ func logRequest() gin.HandlerFunc {
 							tst := fmt.Sprintf("%d", p)
 							if tst != s[1] {
 								log.Printf("String conversion failed! s[1] = %v, p = %v, int32(p) = %v, port = %v",
-									s[1], p, int32(p), clientIP.port.Int)
+									s[1], p, int32(p), clientIP.port.Int32)
 								break
 							}
 
@@ -407,8 +406,8 @@ func logRequest() gin.HandlerFunc {
 							}
 
 							// Port number seems ok, so record it
-							clientIP.port.Status = pgtype.Present
-							clientIP.port.Int = int32(p)
+							clientIP.port.Valid = true
+							clientIP.port.Int32 = int32(p)
 						}
 					default:
 						// * Most likely an IPv6 address without a port number.  Along the lines of (say) "1:2:3:4:5:6" *
@@ -420,7 +419,7 @@ func logRequest() gin.HandlerFunc {
 							// for future investigation.
 							log.Printf("Strange address '%v'", tempIP)
 							clientIP.ipstrange.String = tempIP
-							clientIP.ipstrange.Status = pgtype.Present
+							clientIP.ipstrange.Valid = true
 							break
 						}
 
@@ -430,13 +429,13 @@ func logRequest() gin.HandlerFunc {
 							// future investigation
 							log.Printf("Strange address '%v'", tempIP)
 							clientIP.ipstrange.String = tempIP
-							clientIP.ipstrange.Status = pgtype.Present
+							clientIP.ipstrange.Valid = true
 							break
 						}
 
 						// Seems ok so far, so lets store it in the IPv6 field
 						clientIP.ipv6.String = s[0]
-						clientIP.ipv6.Status = pgtype.Present
+						clientIP.ipv6.Valid = true
 					}
 				}
 			} else {
@@ -451,13 +450,13 @@ func logRequest() gin.HandlerFunc {
 						client_ipv4, client_ipv6, client_ip_strange, client_port, remote_user, request_time, request_type, request,
 						protocol, status, body_bytes_sent, http_referer, http_user_agent)
 					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
-				res, err := pg.Exec(dbQuery,
+				res, err := DB.Exec(context.Background(), dbQuery,
 					// IP address
 					&clientIP.ipv4, &clientIP.ipv6, &clientIP.ipstrange,
 					// client port
 					&clientIP.port,
 					// remote_user
-					&pgtype.Text{String: "", Status: pgtype.Null}, // Hard coded empty string for now
+					&pgtype.Text{String: "", Valid: false}, // Hard coded empty string for now
 					// request_time
 					time.Now().Format(time.RFC3339Nano),
 					// request_type
@@ -497,7 +496,7 @@ func logRequest() gin.HandlerFunc {
 					// client port
 					&clientIP.port,
 					// remote_user
-					&pgtype.Text{String: "", Status: pgtype.Null}, // Hard coded empty string for now
+					&pgtype.Text{String: "", Valid: false}, // Hard coded empty string for now
 					// request_time
 					time.Now().Format(time.RFC3339Nano),
 					// request_type
@@ -530,7 +529,7 @@ func readConfig() (err error) {
 	if configFile == "" {
 		// TODO: Might be a good idea to add permission checks of the dir & conf file, to ensure they're not
 		//       world readable.  Similar in concept to what ssh does for its config files.
-		userHome, err := homedir.Dir()
+		userHome, err := os.UserHomeDir()
 		if err != nil {
 			log.Fatalf("User home directory couldn't be determined: %s", err)
 		}
