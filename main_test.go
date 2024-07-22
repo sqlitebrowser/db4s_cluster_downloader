@@ -30,7 +30,7 @@ var (
 		},
 		"indexpage": {
 			url:          "/",
-			expectedData: "489dea956711829f738c7e0b96e9b79dcc40aaf6be06cfb470a18eed57e2348d",
+			expectedData: "81d7c94b13324f3f739429799ea1740898411f16916659987378ccf1ece0d2b1",
 			expectedType: "sha256",
 		},
 		"SHA256SUMS.txt": {
