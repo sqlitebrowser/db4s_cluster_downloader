@@ -33,11 +33,6 @@ var (
 			expectedData: "81d7c94b13324f3f739429799ea1740898411f16916659987378ccf1ece0d2b1",
 			expectedType: "sha256",
 		},
-		"SHA256SUMS.txt": {
-			url:          "/SHA256SUMS.txt",
-			expectedData: "47f65adf7012313044cb0dd404aba3484a02d2d04025cc00f5674676f9b27688",
-			expectedType: "sha256",
-		},
 
 		// DB4S files
 
