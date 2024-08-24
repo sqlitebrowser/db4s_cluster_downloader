@@ -20,7 +20,7 @@ var (
 	}{
 		"currentrelease": {
 			url:          "/currentrelease",
-			expectedData: "3.12.2\nhttps://sqlitebrowser.org/blog/version-3-12-2-released\n",
+			expectedData: "3.13.0\nhttps://sqlitebrowser.org/blog/version-3-13-0-released\n",
 			expectedType: "string",
 		},
 		"icon": {
