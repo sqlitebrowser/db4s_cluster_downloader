@@ -196,7 +196,7 @@ func connectDatabase() {
 
 // currentReleaseHandler serves the "current release" information to users
 func currentReleaseHandler(c *gin.Context) {
-	resp := "3.12.2\nhttps://sqlitebrowser.org/blog/version-3-12-2-released\n"
+	resp := "3.13.0\nhttps://sqlitebrowser.org/blog/version-3-13-0-released\n"
 	c.String(200, resp)
 }
 
