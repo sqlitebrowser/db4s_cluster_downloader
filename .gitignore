@@ -6,3 +6,4 @@ db4s_cluster_downloader
 DB4S_downloads.sqlite
 local
 other
+.tool-versions
