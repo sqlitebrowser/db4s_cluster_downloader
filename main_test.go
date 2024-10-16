@@ -20,7 +20,7 @@ var (
 	}{
 		"currentrelease": {
 			url:          "/currentrelease",
-			expectedData: "3.13.0\nhttps://sqlitebrowser.org/blog/version-3-13-0-released\n",
+			expectedData: "3.13.1\nhttps://sqlitebrowser.org/blog/version-3-13-1-released\n",
 			expectedType: "string",
 		},
 		"icon": {
@@ -30,11 +30,44 @@ var (
 		},
 		"indexpage": {
 			url:          "/",
-			expectedData: "81d7c94b13324f3f739429799ea1740898411f16916659987378ccf1ece0d2b1",
+			expectedData: "28e72d910d953f25d0a6a24a70b8aceff30d3422a51d6e1fef3a0702c59da618",
 			expectedType: "sha256",
 		},
 
 		// DB4S files
+
+		//// TODO: Uncomment this when 3.13.1 release is public
+		//// 3.13.1
+		//"DB.Browser.for.SQLite-v3.13.1-win32.msi": {
+		//	url:          "/DB.Browser.for.SQLite-v3.13.1-win32.msi",
+		//	expectedData: "e0b9f86d3da4d8d800e144295487e43de306c1bd27f14dccfe41e904736f25f7",
+		//	expectedType: "sha256",
+		//},
+		//"DB.Browser.for.SQLite-v3.13.1-win32.zip": {
+		//	url:          "/DB.Browser.for.SQLite-v3.13.1-win32.zip",
+		//	expectedData: "917ad2fa8d36e3bfa3fc85b11a34a8c18d189fbc2289f5a0d3bf41de8a288edc",
+		//	expectedType: "sha256",
+		//},
+		//"DB.Browser.for.SQLite-v3.13.1-win64.msi": {
+		//	url:          "/DB.Browser.for.SQLite-v3.13.1-win64.msi",
+		//	expectedData: "d023d54b3a5db10c7e896089bb3dbe6e7f4bc4eaa9bbecb34ca414be5970f688",
+		//	expectedType: "sha256",
+		//},
+		//"DB.Browser.for.SQLite-v3.13.1-win64.zip": {
+		//	url:          "/DB.Browser.for.SQLite-v3.13.1-win64.zip",
+		//	expectedData: "22375e275ec42d96de1d3b8e9ea4ed86d2a3505c4d0ffcbd1af67aa4003e5e4d",
+		//	expectedType: "sha256",
+		//},
+		//"DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage": {
+		//	url:          "/DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage",
+		//	expectedData: "d6563c5c211a73192da96e3bb11a3bf83a2f3164aa4db83482c0aecf8b751b77",
+		//	expectedType: "sha256",
+		//},
+		//"DB.Browser.for.SQLite-v3.13.1.dmg": {
+		//	url:          "/DB.Browser.for.SQLite-v3.13.1.dmg",
+		//	expectedData: "a641cfbfcc2ce609f07de44a35134dab53485ecc18e6d9afa297b514d74bd75e",
+		//	expectedType: "sha256",
+		//},
 
 		// 3.13.0
 		"DB.Browser.for.SQLite-v3.13.0-win32.msi": {
