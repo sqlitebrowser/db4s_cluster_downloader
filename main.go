@@ -38,7 +38,7 @@ var (
 	// bother any more as that's probably not important
 	timeStamps = map[string]time.Time{
 		// SHA256 checksums
-		"SHA256SUMS.txt": time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+		"SHA256SUMS.txt": time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
 
 		// *** 3.10.1 release ***
 		"DB.Browser.for.SQLite-3.10.1-win32.exe":               time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC),
@@ -95,6 +95,14 @@ var (
 		"DB.Browser.for.SQLite-v3.13.0-win64.msi":       time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
 		"DB.Browser.for.SQLite-v3.13.0-win64.zip":       time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
 		"DB.Browser.for.SQLite-v3.13.0-x86.64.AppImage": time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+
+		// *** 3.13.1 release ***
+		"DB.Browser.for.SQLite-v3.13.1.dmg":             time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win32.msi":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win32.zip":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win64.msi":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win64.zip":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage": time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
 	}
 
 	// RecordDownloadsLocation controls where downloads are recorded
@@ -196,7 +204,7 @@ func connectDatabase() {
 
 // currentReleaseHandler serves the "current release" information to users
 func currentReleaseHandler(c *gin.Context) {
-	resp := "3.13.0\nhttps://sqlitebrowser.org/blog/version-3-13-0-released\n"
+	resp := "3.13.1\nhttps://sqlitebrowser.org/blog/version-3-13-1-released\n"
 	c.String(200, resp)
 }
 
@@ -233,8 +241,8 @@ func fileHandler(c *gin.Context) {
 
 	// Send the file contents
 	// We use http.ServeContent() here as it allows setting the desired "last modified" timestamp.  The other functions
-	// we could have used instead - c.File() and http.ServeFile() - don't allow this.  Those ones just read the date of
-	// the file on disk, whereas we want to use timestamp entries matching the GitHub release files
+	// we could have used instead - c.File() and http.ServeFile() - don't allow this.  Those just read the date of the
+	// file on disk, whereas we want to use timestamp entries matching the GitHub release files
 	z, err := os.Open(fullPath)
 	if err != nil {
 		fmt.Fprintf(c.Writer, "Internal server error")
