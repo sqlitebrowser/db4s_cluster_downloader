@@ -129,20 +129,19 @@ for file in \
   fi
 done
 
-# TODO: Uncomment this once the GitHub Release is available
-## 3.13.1
-#for file in \
-#    DB.Browser.for.SQLite-v3.13.1.dmg \
-#    DB.Browser.for.SQLite-v3.13.1-win32.msi \
-#    DB.Browser.for.SQLite-v3.13.1-win32.zip \
-#    DB.Browser.for.SQLite-v3.13.1-win64.msi \
-#    DB.Browser.for.SQLite-v3.13.1-win64.zip \
-#    DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage; do
-#  if [ ! -s "${file}" ]; then
-#    echo
-#    echo "Downloading ${file}"
-#    curl "${OPTIONS}" "https://github.com/sqlitebrowser/sqlitebrowser/releases/download/v3.13.1/${file}"
-#  else
-#    echo " * ${file} already downloaded"
-#  fi
-#done
+# 3.13.1
+for file in \
+    DB.Browser.for.SQLite-v3.13.1.dmg \
+    DB.Browser.for.SQLite-v3.13.1-win32.msi \
+    DB.Browser.for.SQLite-v3.13.1-win32.zip \
+    DB.Browser.for.SQLite-v3.13.1-win64.msi \
+    DB.Browser.for.SQLite-v3.13.1-win64.zip \
+    DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage; do
+  if [ ! -s "${file}" ]; then
+    echo
+    echo "Downloading ${file}"
+    curl "${OPTIONS}" "https://github.com/sqlitebrowser/sqlitebrowser/releases/download/v3.13.1/${file}"
+  else
+    echo " * ${file} already downloaded"
+  fi
+done

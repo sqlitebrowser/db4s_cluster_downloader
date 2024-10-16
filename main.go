@@ -38,8 +38,7 @@ var (
 	// bother any more as that's probably not important
 	timeStamps = map[string]time.Time{
 		// SHA256 checksums
-		// TODO: Update timestamp when 3.13.1 is released
-		"SHA256SUMS.txt": time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
+		"SHA256SUMS.txt": time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
 
 		// *** 3.10.1 release ***
 		"DB.Browser.for.SQLite-3.10.1-win32.exe":               time.Date(2017, time.September, 20, 14, 59, 44, 0, time.UTC),
