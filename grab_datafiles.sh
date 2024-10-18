@@ -136,7 +136,7 @@ for file in \
     DB.Browser.for.SQLite-v3.13.1-win32.zip \
     DB.Browser.for.SQLite-v3.13.1-win64.msi \
     DB.Browser.for.SQLite-v3.13.1-win64.zip \
-    DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage; do
+    DB.Browser.for.SQLite-v3.13.1-x86.64-v2.AppImage; do
   if [ ! -s "${file}" ]; then
     echo
     echo "Downloading ${file}"

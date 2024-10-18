@@ -97,12 +97,12 @@ var (
 		"DB.Browser.for.SQLite-v3.13.0-x86.64.AppImage": time.Date(2024, time.July, 22, 12, 41, 37, 0, time.UTC),
 
 		// *** 3.13.1 release ***
-		"DB.Browser.for.SQLite-v3.13.1.dmg":             time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
-		"DB.Browser.for.SQLite-v3.13.1-win32.msi":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
-		"DB.Browser.for.SQLite-v3.13.1-win32.zip":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
-		"DB.Browser.for.SQLite-v3.13.1-win64.msi":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
-		"DB.Browser.for.SQLite-v3.13.1-win64.zip":       time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
-		"DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage": time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1.dmg":                time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win32.msi":          time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win32.zip":          time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win64.msi":          time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-win64.zip":          time.Date(2024, time.October, 16, 07, 48, 52, 0, time.UTC),
+		"DB.Browser.for.SQLite-v3.13.1-x86.64-v2.AppImage": time.Date(2024, time.October, 18, 17, 33, 53, 0, time.UTC),
 	}
 
 	// RecordDownloadsLocation controls where downloads are recorded

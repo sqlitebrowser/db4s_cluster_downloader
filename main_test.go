@@ -30,7 +30,7 @@ var (
 		},
 		"indexpage": {
 			url:          "/",
-			expectedData: "28e72d910d953f25d0a6a24a70b8aceff30d3422a51d6e1fef3a0702c59da618",
+			expectedData: "3ea6230a3f18491d6a236aaea51863067ff0f823e6cd6eb62af5ca255ac70402",
 			expectedType: "sha256",
 		},
 
@@ -58,8 +58,8 @@ var (
 			expectedType: "sha256",
 		},
 		"DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage": {
-			url:          "/DB.Browser.for.SQLite-v3.13.1-x86.64.AppImage",
-			expectedData: "d6563c5c211a73192da96e3bb11a3bf83a2f3164aa4db83482c0aecf8b751b77",
+			url:          "/DB.Browser.for.SQLite-v3.13.1-x86.64-v2.AppImage",
+			expectedData: "c2fd0c27c84777747527e1b28deccc824bc88eeb47f36a9575bf1ba0a5a38453",
 			expectedType: "sha256",
 		},
 		"DB.Browser.for.SQLite-v3.13.1.dmg": {
